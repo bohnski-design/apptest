@@ -224,6 +224,12 @@ const lsSet=(k,v)=>{try{localStorage.setItem(K+k,JSON.stringify(v));return true}
 const persist=()=>lsSet('rechnungen',invs);
 const saveCfg=()=>lsSet('cfg',cfg);
 const newId=()=>Date.now().toString(36)+uid();
+async function saveFile(name,blob){
+  const mobile=window.matchMedia&&matchMedia('(pointer:coarse)').matches;
+  if(mobile&&navigator.canShare){try{const f=new File([blob],name,{type:blob.type||'application/octet-stream'});
+    if(navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return}}catch(e){if(e&&e.name==='AbortError')return}}
+  download(name,blob);
+}
 function download(name,blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000)}
 const bemOf=p=>p.bemerkung??p.kommission??'';
 const hay=(r,p)=>[r.nr,r.auftragsnr,p.bez,p.teilenr,bemOf(p),p.bestellnr,p.referenz,p.lsnr].join(' ').toLowerCase();
@@ -371,21 +377,31 @@ function gErr(e){const c=e&&e.status,m=(e&&e.message)||'';
   if(e&&e.name==='TypeError')return 'Keine Verbindung zu Gemini.';
   if(c===400&&/api key|API_KEY/i.test(m))return 'Der Gemini-Schlüssel ist ungültig.';
   if(c===401||c===403)return 'Der Gemini-Schlüssel hat keine Berechtigung.';
-  if(c===429)return 'Kostenloses Gemini-Limit gerade erreicht – in einer Minute nochmal versuchen.';
+  if(c===429)return 'Kostenloses Gemini-Limit erreicht – mehrere Versuche ohne Erfolg. Bitte in ein paar Minuten nochmal.';
+  if(c===500||c===503||c===504)return 'Gemini ist gerade überlastet – mehrere Versuche ohne Erfolg. Bitte später nochmal.';
   if(c===404)return 'Das eingestellte Gemini-Modell gibt es nicht.';
   return 'Auslesen hat nicht geklappt'+(c?' (Fehler '+c+')':'')+'.'}
-async function gemini(prompt,blobs,signal){
+const sleep=(ms,signal)=>new Promise((ok,no)=>{const t=setTimeout(ok,ms);signal&&signal.addEventListener('abort',()=>{clearTimeout(t);no({name:'AbortError'})},{once:true})});
+async function gemini(prompt,blobs,signal,onWait){
   const parts=[];for(const b of blobs)parts.push({inline_data:{mime_type:'image/jpeg',data:await b64(b)}});parts.push({text:prompt});
   const mk=schema=>JSON.stringify({contents:[{role:'user',parts}],generationConfig:Object.assign({temperature:0,responseMimeType:'application/json'},schema?{responseSchema:SCHEMA}:{})});
   const models=[...new Set([cfg.model||'gemini-flash-latest','gemini-flash-latest','gemini-2.5-flash'])];let last=null;
+  const WAIT=[5,12,25];
   for(const m of models){
-    for(const schema of [true,false]){
+    let schema=true,tries=0;
+    while(true){
       const r=await fetch(GAPI+'models/'+encodeURIComponent(m)+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':cfg.key},body:mk(schema),signal});
       const raw=await r.text();let j={};try{j=JSON.parse(raw)}catch(e){}
-      lastRaw={modell:m,schema,status:r.status,antwort:raw.slice(0,6000)};
-      if(r.status===404){last={status:404,message:j.error&&j.error.message};break}
-      if(r.status===400&&schema&&/schema|response_schema|responseSchema|Invalid JSON payload/i.test((j.error&&j.error.message)||''))continue;
-      if(!r.ok)throw {status:r.status,message:j.error&&j.error.message};
+      lastRaw={modell:m,schema,versuch:tries+1,status:r.status,antwort:raw.slice(0,6000)};
+      const em=(j.error&&j.error.message)||'';
+      if(r.status===404){last={status:404,message:em};break}
+      if(r.status===400&&schema&&/schema|response_schema|responseSchema|Invalid JSON payload/i.test(em)){schema=false;continue}
+      if(r.status===429||r.status===500||r.status===503||r.status===504){
+        last={status:r.status,message:em};
+        if(tries<WAIT.length){const w=WAIT[tries++];for(let k=w;k>0;k--){onWait&&onWait(k,r.status,m);await sleep(1000,signal)}continue}
+        break;
+      }
+      if(!r.ok)throw {status:r.status,message:em};
       const c=(j.candidates||[])[0]||{};
       const text=((c.content&&c.content.parts)||[]).filter(p=>!p.thought).map(p=>p.text||'').join('');
       lastRaw.finish=c.finishReason||(j.promptFeedback&&j.promptFeedback.blockReason)||'';
@@ -409,10 +425,10 @@ async function fromImgs(imgs,isPdf){
   showCapture(true);$('#rev').hidden=true;$('#capT').textContent=isPdf?'PDF auslesen':'Rechnung auslesen';
   $('#thumbs').innerHTML=imgs.map((i,k)=>`<img src="${i.url}" alt="Seite ${k+1}">`).join('');
   if(!cfg.key){work('');openReview(null,imgs);return msg('Bitte zuerst den Gemini-Schlüssel eintragen (Einstellungen). Bis dahin manuell erfassen.',1)}
-  work('Gemini liest die Rechnung inkl. Handschrift … das dauert meist 10–60 Sekunden.<div class="bar"><i></i></div><button class="sbtn" type="button" id="abort" style="margin-top:12px">Abbrechen</button>');
+  work('<span id="wtxt">Gemini liest die Rechnung inkl. Handschrift … das dauert meist 10–60 Sekunden.</span><div class="bar"><i></i></div><button class="sbtn" type="button" id="abort" style="margin-top:12px">Abbrechen</button>');
   ctrl=new AbortController();$('#abort').onclick=()=>{ctrl.abort();closeCapture()};
   try{
-    const res=await gemini(PROMPT+`\n\nEs folgen ${imgs.length} Foto(s) in Seitenreihenfolge: Foto 1 = Seite 1${imgs.length>1?', Foto 2 = Seite 2 usw.':''}${isPdf?' Die Bilder stammen aus einer PDF-Datei; gibt es dort keine Textmarker oder Handschrift, ist markiert false und bemerkung leer.':''}`,imgs.map(i=>i.blob),ctrl.signal);
+    const res=await gemini(PROMPT+`\n\nEs folgen ${imgs.length} Foto(s) in Seitenreihenfolge: Foto 1 = Seite 1${imgs.length>1?', Foto 2 = Seite 2 usw.':''}${isPdf?' Die Bilder stammen aus einer PDF-Datei; gibt es dort keine Textmarker oder Handschrift, ist markiert false und bemerkung leer.':''}`,imgs.map(i=>i.blob),ctrl.signal,(k,st)=>{const p=$('#wtxt');if(p)p.textContent=`Gemini ist gerade ${st===429?'am Limit':'ausgelastet'} – neuer Versuch in ${k} s …`});
     const j=parseInvoice(res.text);
     const pos=(j.positionen||[]).map(p=>({bestellnr:S(p.bestellnummer),bestelldatum:okDate(p.bestelldatum),referenz:S(p.referenznummer),bestellart:S(p.bestellart),versandart:S(p.versandart),lsnr:S(p.lieferschein),lsdatum:okDate(p.lieferscheindatum),
       bez:S(p.bezeichnung),teilenr:S(p.teilenummer).replace(/^\*\)\s*/,''),menge:p.menge,einheit:S(p.einheit)||'Stk',ep:p.einzelpreis,rabatt:p.rabatt,netto:p.netto,mwst:p.mwst,gesamt:p.gesamt,bemerkung:S(p.bemerkung),markiert:!!p.markiert}));
@@ -541,11 +557,13 @@ $('#export').onclick=async()=>{
     try{await navigator.clipboard.writeText(tsv);msg('Excel-Bibliothek nicht geladen (offline?) – Tabelle wurde kopiert, in Excel einfügen.')}catch(e){msg('Export gerade nicht möglich – bitte mit Internetverbindung erneut versuchen.',1)}
     return;
   }
+  let buf;try{
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,sheet(HO,open,[...DATE_I,22]),'Fehlmengen');
   XLSX.utils.book_append_sheet(wb,sheet([...HEAD,'Nachgeliefert am','Tage bis Lieferung'],done,[...DATE_I,21]),'Nachgeliefert');
-  const buf=XLSX.write(wb,{bookType:'xlsx',type:'array'});
-  download(`Fehlmengen_BOB_${today()}.xlsx`,new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  buf=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  }catch(err){return msg('Excel-Datei konnte nicht erstellt werden ('+(err&&err.message||err)+').',1)}
+  saveFile(`Fehlmengen_BOB_${today()}.xlsx`,new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
 };
 
 /* ---------- Start ---------- */
@@ -567,9 +585,9 @@ $('#ics').onclick=()=>{
   const txt=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Fehlmengen//DE','BEGIN:VEVENT','UID:fehlmengen-'+Date.now()+'@fehlmengen','DTSTAMP:'+new Date().toISOString().replace(/[-:]/g,'').slice(0,15)+'Z',
     'DTSTART;TZID=Europe/Berlin:'+ymd+'T073000','DURATION:PT15M','RRULE:'+rule,'SUMMARY:Fehlmengen prüfen (BOB)','DESCRIPTION:Offene Nachlieferungen kontrollieren: '+url,'URL:'+url,
     'BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:Fehlmengen prüfen','TRIGGER:PT0M','END:VALARM','END:VEVENT','END:VCALENDAR'].join('\r\n');
-  download('Fehlmengen-Erinnerung.ics',new Blob([txt],{type:'text/calendar'}));
+  saveFile('Fehlmengen-Erinnerung.ics',new Blob([txt],{type:'text/calendar'}));
 };
-$('#bkOut').onclick=()=>download(`Fehlmengen-Sicherung_${today()}.json`,new Blob([JSON.stringify({app:'fehlmengen-bob',version:1,exportiert:today(),intervall:ival,rechnungen:invs},null,1)],{type:'application/json'}));
+$('#bkOut').onclick=()=>saveFile(`Fehlmengen-Sicherung_${today()}.json`,new Blob([JSON.stringify({app:'fehlmengen-bob',version:1,exportiert:today(),intervall:ival,rechnungen:invs},null,1)],{type:'application/json'}));
 $('#bkIn').addEventListener('change',async e=>{
   const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;
   try{const j=JSON.parse(await f.text()),list=Array.isArray(j)?j:j.rechnungen;if(!Array.isArray(list))throw 0;
