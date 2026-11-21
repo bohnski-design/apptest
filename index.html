@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fehlmengen-Tracker</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="theme-color" content="#d4ad78">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Fehlmengen">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* VOICE: sachliches Werkstatt-Werkzeug, ruhig, schnell bedienbar
+   IDEA: die BOB-Rechnung mit Textmarker und Abhakkästchen – was nicht abgehakt ist, fehlt
+   PICTURE: die Fehlmengen-Liste selbst, direkt unter dem Titel
+   COLOUR and TYPE: Karton-Band, Tinte, Signalorange für "fehlt", Textmarker-Gelb; Archivo
+   LAYOUT: eine Spalte bis 760px, Telefon zuerst */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#111214);--ink:light-dark(#15171c,#ecebe7);--mut:light-dark(#5b606c,#a2a5ad);--line:light-dark(#e2e3e7,#2b2d33);--kraft:light-dark(#d4ad78,#2c2318);--kink:light-dark(#2a1d0c,#ecd3a4);--sig:light-dark(#c93c0c,#ff7f4a);--sigbg:light-dark(#fdeee7,#3a1d12);--soft:light-dark(#f6f6f8,#1a1b1f);--hl:light-dark(#eef46a,#5d6118);--hlink:light-dark(#2d2f00,#f4f7c8)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 'Archivo',system-ui,sans-serif;overflow-x:clip}
+.band{padding:clamp(22px,4vw,48px) max(5vw,16px)}
+.wrap{max-width:760px;margin:0 auto}
+.top{background:var(--kraft);color:var(--kink)}
+h1{font:800 clamp(34px,6vw,48px)/1.05 'Archivo',sans-serif;margin:0 0 4px;text-wrap:balance}
+.kick{margin:0 0 10px;font-weight:600}
+h2{font:700 24px/1.2 'Archivo',sans-serif;margin:0 0 14px}
+.sum{margin:0 0 18px;font-size:17px}
+.actions{display:flex;flex-wrap:wrap;gap:10px}
+.btn{min-height:44px;padding:0 18px;border-radius:10px;border:1.5px solid currentColor;background:transparent;color:inherit;font:600 16px 'Archivo',sans-serif;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn:disabled{opacity:.4;cursor:default}
+.pri{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.top .pri{background:var(--kink);color:var(--kraft);border-color:var(--kink)}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.due{margin-top:16px;background:var(--sig);color:#fff;border-radius:10px;padding:12px 14px;font-weight:600}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,label.btn:focus-within{outline:3px solid var(--sig);outline-offset:2px}
+.search{margin-bottom:16px}
+.grp{border:1px solid var(--line);border-radius:14px;margin:0 0 18px;overflow:hidden}
+.grp>header{padding:14px 16px;background:var(--soft);border-bottom:1px solid var(--line)}
+.grp h3{margin:0;font:700 18px/1.3 'Archivo',sans-serif}
+.sub{color:var(--mut);font-size:14px}
+.grp ul,#pos,#done{list-style:none;margin:0;padding:0}
+.op{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:14px 16px}
+.op+.op{border-top:1px solid var(--line)}
+.bz{font-weight:600}
+.kom{display:inline-block;margin-top:4px;font-weight:600;font-size:14px;padding:1px 8px;border-radius:6px;background:var(--soft);border:1px solid var(--line)}
+.age{font-size:14px;margin-top:4px}
+.op.isdue .age{color:var(--sig);font-weight:600}
+.opa{display:flex;flex-direction:column;gap:6px}
+.sbtn{min-height:44px;padding:0 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:600 14px 'Archivo',sans-serif;cursor:pointer;white-space:nowrap}
+.sbtn.ok{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.sbtn.warn{color:var(--sig);border-color:var(--sig)}
+.gf{display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px;border-top:1px solid var(--line)}
+.tag{display:inline-block;font-size:13px;font-weight:600;padding:1px 8px;border-radius:99px;background:var(--sigbg);color:var(--sig);white-space:nowrap}
+.mk{display:inline-block;font-size:12px;font-weight:600;padding:1px 7px;border-radius:4px;background:var(--hl);color:var(--hlink);white-space:nowrap}
+.empty{padding:28px 20px;border:1.5px dashed var(--line);border-radius:14px;color:var(--mut);text-align:center}
+details{margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
+summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;align-items:center}
+.dn{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:18px}
+label.f span,.pm label span{display:block;font-size:12px;color:var(--mut);margin-bottom:3px}
+label.f span{font-size:13px}
+input,select{font:16px 'Archivo',sans-serif;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);width:100%}
+.ph{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.ph b{font-size:17px}.ph div{display:flex;gap:8px;flex-wrap:wrap}
+.obh{padding:14px 0 6px;border-top:2px solid var(--ink);font-size:14px}
+.obh b{font-size:15px}
+.prow{display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;padding:12px 0;border-top:1px solid var(--line)}
+.obh+.prow{border-top:0}
+.prow.ok .bz{color:var(--mut)}
+.chk{position:relative;width:44px;height:44px;display:grid;place-items:center;cursor:pointer}
+.chk input{position:absolute;inset:0;opacity:0;margin:0;width:100%;height:100%;cursor:pointer}
+.box{width:30px;height:30px;border:2.5px solid var(--sig);border-radius:7px;display:grid;place-items:center}
+.chk input:checked+.box{background:var(--ink);border-color:var(--ink)}
+.chk input:checked+.box::after{content:"";width:9px;height:16px;border:solid var(--bg);border-width:0 3px 3px 0;transform:translateY(-2px) rotate(45deg)}
+.chk input:focus-visible+.box{outline:3px solid var(--sig);outline-offset:2px}
+.pt{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.pt .bz{flex:1 1 180px;border-color:transparent;padding-left:6px;font-weight:600}
+.pt .bz:focus{border-color:var(--line)}
+.pm{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:6px;align-items:end}
+.pm .w2{grid-column:span 3}
+.pm input{min-height:40px;padding:6px 8px}
+.pm input.n{text-align:right}
+.x{width:100%;height:40px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--mut);font-size:20px;cursor:pointer}
+.revfoot{position:sticky;bottom:0;background:var(--bg);border-top:1px solid var(--line);padding:12px 0;margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.revfoot .rs{flex:1 1 200px;font-size:14px;color:var(--mut)}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.thumbs img{height:72px;border-radius:8px;border:1px solid var(--line)}
+.work{padding:20px;border:1.5px dashed var(--line);border-radius:12px;margin:0 0 16px}
+.bar{height:4px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:12px}
+.bar i{display:block;height:100%;width:30%;background:var(--sig);animation:sw 1.4s ease-in-out infinite}
+@keyframes sw{0%{transform:translateX(-100%)}100%{transform:translateX(340%)}}
+@media(prefers-reduced-motion:reduce){.bar i{animation:none;width:100%;opacity:.5}}
+.msg{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);max-width:min(92vw,520px);background:var(--ink);color:var(--bg);padding:12px 16px;border-radius:10px;font-weight:500;z-index:9}
+.msg:empty{display:none}.msg.err{background:var(--sig);color:#fff}
+.note{font-size:13px;color:var(--mut);margin-top:24px}
+.setup{border:2px solid var(--ink);border-radius:14px;padding:16px;margin-bottom:18px}
+.setup h3{margin:0 0 6px;font:700 18px/1.3 'Archivo',sans-serif}
+.krow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.krow input{flex:1 1 220px}
+.setgrid{display:grid;gap:16px;padding:6px 0 10px}
+.setgrid h4{margin:0 0 4px;font-size:15px}
+.ok-t{color:light-dark(#1f7a3a,#6fd08c);font-weight:600}.bad-t{color:var(--sig);font-weight:600}
+.pc{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:12px 0 6px}
+.pc button{min-height:56px;font:700 22px 'Archivo',sans-serif;border-radius:10px;border:1.5px solid var(--ink);background:var(--bg);color:var(--ink);cursor:pointer}
+.shot{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.shot .ph0{width:64px;height:86px;border-radius:8px;border:1.5px dashed var(--line);display:grid;place-items:center;color:var(--mut);font-weight:700}
+.shot img{width:64px;height:86px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.shot .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.shot.cur{background:var(--soft);margin:0 -12px;padding:12px;border-radius:12px;border-top-color:transparent}
+.fb{position:relative;overflow:hidden;display:inline-flex;align-items:center;justify-content:center}
+.fb input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px;margin:0}
+.fb:focus-within{outline:3px solid var(--sig);outline-offset:2px}
+.or{display:flex;align-items:center;gap:12px;color:var(--mut);font-size:14px;margin:18px 0 12px}.or::before,.or::after{content:"";flex:1;border-top:1px solid var(--line)}
+.lnk{background:none;border:0;padding:6px 0;min-height:36px;color:var(--mut);font:600 14px 'Archivo',sans-serif;text-decoration:underline;cursor:pointer}
+.bemf{display:flex;gap:8px;margin-top:6px}.bemf input{flex:1}
+@media(max-width:560px){.op{grid-template-columns:1fr}.opa{flex-direction:row}.opa .sbtn{flex:1}.pm{grid-template-columns:repeat(3,minmax(0,1fr))}.pm .w2{grid-column:span 3}}
+</style>
+</head>
+<body>
+<header class="band top"><div class="wrap">
+  <h1>Fehlmengen</h1>
+  <p class="kick">BOB Automotive · berechnet, aber nicht geliefert</p>
+  <p class="sum" id="sum">Lade …</p>
+  <div class="actions">
+    <button class="btn pri" id="shoot" type="button">Rechnung erfassen (Foto/PDF)</button>
+    <button class="btn" id="manual" type="button">Manuell erfassen</button>
+    <button class="btn" id="export" type="button">Excel-Export</button>
+  </div>
+  <div class="due" id="due" hidden></div>
+</div></header>
+
+<main class="band"><div class="wrap">
+  <section id="capture" hidden>
+    <h2 id="capT">Rechnung prüfen</h2>
+    <div id="shots"></div>
+    <div class="thumbs" id="thumbs"></div>
+    <div class="work" id="work" hidden></div>
+    <form id="rev" hidden>
+      <div class="fields">
+        <label class="f"><span>Rechnungsnummer</span><input id="fN" inputmode="numeric" autocomplete="off"></label>
+        <label class="f"><span>Rechnungsdatum</span><input id="fD" type="date"></label>
+        <label class="f"><span>Auftragsnummer</span><input id="fA" inputmode="numeric" autocomplete="off"></label>
+        <label class="f"><span>Kundennummer</span><input id="fK" inputmode="numeric" autocomplete="off"></label>
+        <label class="f"><span>Annahmedatum</span><input id="fAn" type="date"></label>
+        <label class="f"><span>Annehmer</span><input id="fAh" autocomplete="off"></label>
+        <label class="f"><span>Eingangsstempel</span><input id="fE" type="date"></label>
+        <label class="f"><span>Fehlt seit (nicht angehakte)</span><input id="fF" type="date"></label>
+      </div>
+      <div class="ph"><b>Geliefertes anhaken</b><div><button class="sbtn" type="button" id="byMark" hidden>Nicht markierte anhaken</button><button class="sbtn" type="button" id="allOk">Alle anhaken</button></div></div>
+      <ul id="pos"></ul>
+      <button class="sbtn" type="button" id="addPos" style="margin-top:10px">+ Position</button>
+      <div class="revfoot">
+        <span class="rs" id="revSum"></span>
+        <button class="btn" type="button" id="cancel">Abbrechen</button>
+        <button class="btn pri" type="submit" id="save">Speichern</button>
+      </div>
+    </form>
+  </section>
+
+  <section id="list">
+    <div class="setup" id="setup" hidden>
+      <h3>Einmalig: Gemini-Schlüssel eintragen</h3>
+      <div class="sub">Den Schlüssel bekommst du kostenlos auf aistudio.google.com/app/apikey. Er bleibt nur auf diesem Gerät gespeichert.</div>
+      <div class="krow"><input id="key1" type="password" autocomplete="off" placeholder="API-Schlüssel einfügen" aria-label="Gemini-API-Schlüssel"><button class="btn pri" type="button" id="key1Save">Speichern</button></div>
+      <div id="key1State" class="sub" style="margin-top:8px"></div>
+    </div>
+    <input class="search" id="q" type="search" placeholder="Suchen: Bemerkung, Teilenr., Rechnungsnr. …" aria-label="Suchen">
+    <div id="groups"></div>
+    <details id="doneBox"><summary id="doneSum">Nachgeliefert</summary><ul id="done"></ul></details>
+    <details id="setBox"><summary>Einstellungen</summary>
+      <div class="setgrid">
+        <div><h4>Gemini</h4>
+          <label class="f"><span>API-Schlüssel (nur auf diesem Gerät)</span><input id="key" type="password" autocomplete="off"></label>
+          <label class="f" style="margin-top:8px"><span>Modell</span><input id="model" autocomplete="off" placeholder="gemini-flash-latest"></label>
+          <div class="krow"><button class="sbtn ok" type="button" id="keySave">Speichern &amp; testen</button></div>
+          <div id="keyState" class="sub" style="margin-top:6px"></div></div>
+        <div><h4>Erinnerung</h4>
+          <label class="f" style="max-width:280px;display:block"><span>Kontrolle fällig alle</span>
+            <select id="ival"><option value="3">3 Tage</option><option value="7" selected>7 Tage</option><option value="14">14 Tage</option><option value="30">30 Tage</option></select></label>
+          <div class="krow"><button class="sbtn" type="button" id="ics">Erinnerung in Kalender eintragen</button></div>
+          <div class="sub" style="margin-top:4px">Legt einen wiederkehrenden Termin (7:30 Uhr) im Handy-Kalender an.</div></div>
+        <div><h4>Sicherung</h4>
+          <div class="sub">Die Daten liegen nur in diesem Browser. Sichere sie ab und zu, z. B. in deiner Cloud.</div>
+          <div class="krow"><button class="sbtn" type="button" id="bkOut">Sicherung speichern</button><label class="sbtn fb">Sicherung laden<input type="file" id="bkIn" accept=".json,application/json"></label></div></div>
+      </div>
+    </details>
+    <p class="note">Fotos und PDFs werden zum Auslesen an Google Gemini geschickt und nicht gespeichert. Alle Rechnungsdaten bleiben nur auf diesem Gerät.</p>
+  </section>
+</div></main>
+<p class="msg" id="msg" role="status" aria-live="polite"></p>
+
+<script>
+{
+const LIEFERANT='BOB Automotive GmbH';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const eur=n=>(n==null||isNaN(n))?'–':n.toLocaleString('de-DE',{style:'currency',currency:'EUR'});
+const num=n=>(n==null||isNaN(n))?'':n.toLocaleString('de-DE',{maximumFractionDigits:3});
+const pn=v=>{if(typeof v==='number')return isNaN(v)?null:v;if(v==null)return null;let s=String(v).replace(/[\s€%]/g,'');if(!s)return null;if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');const n=parseFloat(s);return isNaN(n)?null:n};
+const iso=d=>new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const today=()=>iso(new Date());
+const days=(a,b)=>a?Math.round((Date.parse(b)-Date.parse(a))/864e5):0;
+const fd=s=>s?s.split('-').reverse().join('.'):'–';
+const uid=()=>Math.random().toString(36).slice(2,10);
+const r2=n=>Math.round(n*100)/100;
+const nettoOf=p=>p.netto!=null?p.netto:(p.menge!=null&&p.ep!=null?r2(p.menge*p.ep*(1-(p.rabatt||0)/100)):null);
+const bruttoOf=p=>p.gesamt!=null?p.gesamt:(nettoOf(p)!=null?r2(nettoOf(p)*(1+(p.mwst??19)/100)):null);
+const okDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'')?s:'';
+const tg=n=>n===1?'1 Tag':n+' Tage';
+const S=v=>v==null?'':String(v).trim();
+
+let invs=[],ival=7,ready=false,rev=null,ctrl=null,delArm=null,qtext='';
+const K='fehlmengen-bob.';
+const lsGet=(k,d)=>{try{const v=localStorage.getItem(K+k);return v==null?d:JSON.parse(v)}catch(e){return d}};
+let cfg=Object.assign({key:'',model:'gemini-flash-latest',intervall:7},lsGet('cfg',{}));
+const msg=(t,err)=>{const m=$('#msg');m.textContent=t||'';m.className='msg'+(err?' err':'');clearTimeout(msg.t);if(t)msg.t=setTimeout(()=>m.textContent='',6000)};
+const lsSet=(k,v)=>{try{localStorage.setItem(K+k,JSON.stringify(v));return true}catch(e){msg('Speichern auf dem Gerät fehlgeschlagen – Speicher voll oder gesperrt.',1);return false}};
+const persist=()=>lsSet('rechnungen',invs);
+const saveCfg=()=>lsSet('cfg',cfg);
+const newId=()=>Date.now().toString(36)+uid();
+function download(name,blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000)}
+const bemOf=p=>p.bemerkung??p.kommission??'';
+const hay=(r,p)=>[r.nr,r.auftragsnr,p.bez,p.teilenr,bemOf(p),p.bestellnr,p.referenz,p.lsnr].join(' ').toLowerCase();
+const match=(r,p)=>!qtext||hay(r,p).includes(qtext);
+
+/* ---------- Liste ---------- */
+let bemEdit=null,bemDraft='';
+function bemBlock(r,p){
+  const k=r.id+'|'+p.id;
+  if(bemEdit===k)return `<div class="bemf"><input id="bemIn" value="${esc(bemDraft)}" placeholder="Bemerkung" aria-label="Bemerkung"><button class="sbtn ok" data-a="bemSave" data-r="${r.id}" data-p="${p.id}">OK</button></div>`;
+  const b=bemOf(p);
+  return `${b?`<span class="kom">${esc(b)}</span> `:''}<button class="lnk" data-a="bem" data-r="${r.id}" data-p="${p.id}">${b?'Bemerkung ändern':'+ Bemerkung'}</button>`;
+}
+function openItems(all){const o=[];for(const r of invs)for(const p of (r.positionen||[]))if(p.status==='offen'&&(all||match(r,p)))o.push({r,p});return o}
+function isDue(p){return days(p.kontrolle||p.fehltSeit,today())>=ival}
+function grouped(o){
+  const g=new Map();for(const it of o){if(!g.has(it.r.id))g.set(it.r.id,{r:it.r,items:[]});g.get(it.r.id).items.push(it.p)}
+  const gs=[...g.values()];
+  gs.forEach(x=>x.items.sort((a,b)=>(a.fehltSeit||'').localeCompare(b.fehltSeit||'')));
+  gs.sort((a,b)=>(a.items[0].fehltSeit||'').localeCompare(b.items[0].fehltSeit||'')||(a.r.nr||'').localeCompare(b.r.nr||''));
+  return gs;
+}
+function render(){
+  const all=openItems(true),o=openItems(false),t=today(),groups=grouped(o);
+  const total=all.reduce((s,x)=>s+(nettoOf(x.p)||0),0),dueN=all.filter(x=>isDue(x.p)).length,gN=new Set(all.map(x=>x.r.id)).size;
+  $('#sum').innerHTML=!ready?'Lade …':all.length?`<b>${all.length}</b> offene Position${all.length>1?'en':''} aus <b>${gN}</b> Rechnung${gN>1?'en':''} · <b>${eur(total)}</b> netto`:'Keine offenen Positionen.';
+  const d=$('#due');d.hidden=!dueN;d.textContent=`${dueN} Position${dueN>1?'en':''} zur Kontrolle fällig – prüfe, ob nachgeliefert wurde.`;
+  $('#groups').innerHTML=!ready?'<div class="empty">Lade Daten …</div>':groups.length?groups.map(({r,items})=>{
+    const s=items.reduce((a,p)=>a+(nettoOf(p)||0),0);
+    return `<article class="grp"><header><h3>RE ${esc(r.nr||'ohne Nr.')}</h3>
+      <div class="sub">vom ${fd(r.rechnungsdatum)}${r.auftragsnr?' · Auftrag '+esc(r.auftragsnr):''} · ${items.length} offen · ${eur(s)} netto</div></header><ul>
+      ${items.map(p=>{const dd=isDue(p);return `<li class="op${dd?' isdue':''}"><div><div class="bz">${esc(p.bez||'Ohne Bezeichnung')}</div>
+        <div class="sub">${p.teilenr?esc(p.teilenr)+' · ':''}${num(p.menge)} ${esc(p.einheit||'')} · netto ${eur(nettoOf(p))} · brutto ${eur(bruttoOf(p))}</div>
+        <div class="sub">${p.bestellnr?'Best. '+esc(p.bestellnr):''}${p.lsnr?' · LS '+esc(p.lsnr):''}</div>
+        ${bemBlock(r,p)}
+        <div class="age">Fehlt seit ${fd(p.fehltSeit)} · ${tg(days(p.fehltSeit,t))}${p.kontrolle?' · geprüft '+fd(p.kontrolle):''}${dd?' <span class="tag">prüfen</span>':''}</div></div>
+        <div class="opa"><button class="sbtn ok" data-a="ok" data-r="${r.id}" data-p="${p.id}">Nachgeliefert</button><button class="sbtn" data-a="chk" data-r="${r.id}" data-p="${p.id}">Fehlt noch</button></div></li>`}).join('')}
+      </ul><div class="gf"><button class="sbtn" data-a="edit" data-r="${r.id}">Bearbeiten</button><button class="sbtn warn" data-a="del" data-r="${r.id}">${delArm===r.id?'Wirklich löschen?':'Löschen'}</button></div></article>`}).join('')
+    :`<div class="empty">${qtext&&all.length?'Keine offene Position passt zur Suche.':'Nichts offen. Erfasse eine Rechnung, bei der etwas fehlt – die nicht angehakten Positionen landen hier.'}</div>`;
+  const bi=$('#bemIn');if(bi&&document.activeElement!==bi){bi.focus();bi.setSelectionRange(bi.value.length,bi.value.length)}
+  const dn=[];for(const r of invs)for(const p of (r.positionen||[]))if(p.status==='nachgeliefert'&&match(r,p))dn.push({r,p});
+  dn.sort((a,b)=>(b.p.nachAm||'').localeCompare(a.p.nachAm||''));
+  $('#doneBox').hidden=!dn.length;$('#doneSum').textContent=`Nachgeliefert (${dn.length})`;
+  $('#done').innerHTML=dn.slice(0,150).map(({r,p})=>`<li class="dn"><div><div class="bz">${esc(p.bez||'Ohne Bezeichnung')}${bemOf(p)?' · '+esc(bemOf(p)):''}</div><div class="sub">RE ${esc(r.nr||'ohne Nr.')} · ${esc(p.teilenr||'')} · fehlte ${fd(p.fehltSeit)}, nachgeliefert ${fd(p.nachAm)}</div></div><button class="sbtn" data-a="undo" data-r="${r.id}" data-p="${p.id}">Wieder offen</button></li>`).join('');
+}
+
+function updatePos(rid,pid,ch){const r=invs.find(x=>x.id===rid);if(!r)return;const p=(r.positionen||[]).find(x=>x.id===pid);if(!p)return;Object.assign(p,ch);persist();render()}
+$('#list').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-a]');if(!b)return;const {a,r,p}=b.dataset;
+  if(a==='ok'){updatePos(r,p,{status:'nachgeliefert',nachAm:today()});msg('Als nachgeliefert markiert.')}
+  else if(a==='chk'){updatePos(r,p,{kontrolle:today()});msg('Kontrolle vermerkt – nächste Erinnerung in '+ival+' Tagen.')}
+  else if(a==='bem'){const x=invs.find(i=>i.id===r),y=x&&(x.positionen||[]).find(i=>i.id===p);bemEdit=r+'|'+p;bemDraft=y?bemOf(y):'';render()}
+  else if(a==='bemSave'){saveBem(r,p)}
+  else if(a==='undo'){updatePos(r,p,{status:'offen',nachAm:null});msg('Wieder auf offen gesetzt.')}
+  else if(a==='edit'){const x=invs.find(i=>i.id===r);if(x)openReview(x,[])}
+  else if(a==='del'){
+    if(delArm!==r){delArm=r;render();setTimeout(()=>{if(delArm===r){delArm=null;render()}},4000);return}
+    delArm=null;invs=invs.filter(x=>x.id!==r);persist();render();msg('Rechnung gelöscht.');
+  }
+});
+function saveBem(r,p){const v=bemDraft.trim();bemEdit=null;updatePos(r,p,{bemerkung:v,kommission:null});render();msg(v?'Bemerkung gespeichert.':'Bemerkung entfernt.')}
+$('#groups').addEventListener('input',e=>{if(e.target.id==='bemIn')bemDraft=e.target.value});
+$('#groups').addEventListener('keydown',e=>{if(e.target.id!=='bemIn')return;if(e.key==='Enter'){const [r,p]=bemEdit.split('|');saveBem(r,p)}else if(e.key==='Escape'){bemEdit=null;render()}});
+$('#q').addEventListener('input',e=>{qtext=e.target.value.trim().toLowerCase();render()});
+$('#ival').addEventListener('change',e=>{ival=+e.target.value;cfg.intervall=ival;saveCfg();render()});
+
+/* ---------- Erfassen ---------- */
+function showCapture(on){$('#capture').hidden=!on;$('#list').hidden=on;window.scrollTo(0,0)}
+function work(html){const w=$('#work');w.hidden=!html;w.innerHTML=html||''}
+async function shrink(file){
+  const url=URL.createObjectURL(file),img=new Image();
+  await new Promise((ok,no)=>{img.onload=ok;img.onerror=no;img.src=url});
+  const s=Math.min(1,2400/Math.max(img.naturalWidth,img.naturalHeight)),c=document.createElement('canvas');
+  c.width=Math.round(img.naturalWidth*s);c.height=Math.round(img.naturalHeight*s);c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+  const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.88));return {blob,url};
+}
+const PROMPT=`Du liest Foto(s) einer Rechnung der BOB Automotive GmbH (Teilehandel). Mehrere Fotos sind aufeinanderfolgende Seiten derselben Rechnung. Antworte NUR mit einem JSON-Objekt, ohne Markdown und ohne Erklärung, genau in dieser Form:
+{"rechnungsnummer":"","auftragsnummer":"","kundennummer":"","rechnungsdatum":"YYYY-MM-DD","annahmedatum":"YYYY-MM-DD","annehmer":"","eingangsstempel":"YYYY-MM-DD","positionen":[{"bestellnummer":"","bestelldatum":"YYYY-MM-DD","referenznummer":"","bestellart":"","versandart":"","lieferschein":"","lieferscheindatum":"YYYY-MM-DD","bezeichnung":"","teilenummer":"","menge":1,"einheit":"Stk","einzelpreis":0,"rabatt":0,"netto":0,"mwst":19,"gesamt":0,"bemerkung":"","markiert":false}]}
+
+Aufbau der Rechnung:
+- Kopf rechts unter "RECHNUNG": Auftragsnummer, Rechnungsnummer, Rechnungsdatum, Kundennummer, Annahmedatum; darunter "Annehmer" mit Namen. Empfängeradresse links, E-Mail-Adressen und Fahrzeug-Block ignorieren.
+- Roter Stempel "Eingegangen" mit handschriftlichem Datum (z. B. 20.11.26) -> eingangsstempel. Unleserlich -> null.
+- Positionen stehen in Bestell-Blöcken. Ein Block beginnt mit "Bestellnummer", "Bestelldatum", "Referenznummer", "Bestellart", "Versandart" und "Gelief.m.LS <Lieferscheinnummer> am <Datum>". Diese Werte bei JEDER Position des Blocks wiederholen. Es kann mehrere Blöcke geben, auch über Seiten hinweg.
+- Positionszeile, Spalten von links: Bezeichnung (z. B. "DICHTUNG ZS17", komplett mit Kürzel), Nummer = teilenummer (vorangestelltes "*)" weglassen, z. B. "296889243R"), Menge mit Einheit ("1,00 Stk." -> menge 1, einheit "Stk"), Netto Einzelpreis -> einzelpreis, Rab % -> rabatt, Netto (nach Rabatt) -> netto, MwSt % -> mwst, Gesamt (brutto) -> gesamt. Eine kleine hochgestellte Ziffer hinter Gesamt ist eine Fußnote: ignorieren.
+- Unter jeder Position steht eine gedruckte Zeile "Rückstand: x Stk." – diese NICHT ausgeben. Rechts daneben bzw. darüber steht oft eine HANDSCHRIFTLICHE Notiz, meist Name und Nummer, z. B. "Benz #95118" -> bemerkung. So genau wie möglich lesen, "#" beibehalten. Keine Notiz -> "".
+- markiert = true, wenn die Positionszeile mit Textmarker (gelb/grün) hervorgehoben ist, sonst false. Handschriftliche Haken sind keine Markierung.
+- Keine Summen-, Übertrag-, MwSt- oder Endbetragszeilen als Position.
+Zahlen als JSON-Zahlen mit Punkt (deutsches Komma umwandeln). Datumsangaben TT.MM.JJ oder TT.MM.JJJJ immer als YYYY-MM-DD (JJ = 20JJ). Unlesbares als null.`;
+let shot=null;
+function startShots(){if(ctrl)ctrl.abort();rev=null;$('#rev').hidden=true;work('');$('#thumbs').innerHTML='';$('#capT').textContent='Rechnung fotografieren';shot={n:0,imgs:[],idx:0};showCapture(true);renderShots()}
+function renderShots(){
+  const el=$('#shots');if(!shot){el.innerHTML='';return}
+  if(!shot.n){el.innerHTML=`<p style="margin:0;font-size:18px;font-weight:600">Wie viele Seiten hat die Rechnung?</p><p class="sub" style="margin:4px 0 0">Steht unten rechts, z. B. „Seite 1 / 2“.</p>
+    <div class="pc">${[1,2,3,4,5,6].map(n=>`<button type="button" data-n="${n}">${n}</button>`).join('')}</div>
+    <div class="or">oder</div><label class="btn fb" style="width:100%">PDF-Datei wählen<input type="file" accept="application/pdf,.pdf" data-pdf="1"></label>
+    <div class="revfoot"><span class="rs"></span><button class="btn" type="button" data-s="cancel">Abbrechen</button></div>`;return}
+  const nx=shot.imgs.findIndex(x=>!x),done=shot.imgs.filter(Boolean).length;
+  el.innerHTML=shot.imgs.map((img,i)=>`<div class="shot${i===nx?' cur':''}">${img?`<img src="${img.url}" alt="Seite ${i+1}">`:`<div class="ph0">${i+1}</div>`}
+    <div><b>Seite ${i+1} von ${shot.n}</b><div class="row">${img?`<label class="sbtn fb">Neu aufnehmen<input type="file" accept="image/*" capture="environment" data-i="${i}"></label><label class="sbtn fb">Galerie<input type="file" accept="image/*" data-i="${i}"></label>`:i===nx?`<label class="sbtn ok fb">Foto aufnehmen<input type="file" accept="image/*" capture="environment" data-i="${i}"></label><label class="sbtn fb">Aus Galerie<input type="file" accept="image/*" multiple data-i="${i}"></label>`:'<span class="sub">kommt danach</span>'}</div></div></div>`).join('')
+    +`<div class="revfoot"><span class="rs">${done} von ${shot.n} Seiten fotografiert</span><button class="btn" type="button" data-s="cancel">Abbrechen</button><button class="btn pri" type="button" data-s="go"${done<shot.n?' disabled':''}>Auslesen starten</button></div>`;
+}
+$('#shots').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b||!shot)return;const d=b.dataset;
+  if(d.n){shot.n=+d.n;shot.imgs=Array(shot.n).fill(null);renderShots()}
+  else if(d.s==='cancel')closeCapture();
+  else if(d.s==='go'&&shot.imgs.every(Boolean)){const imgs=shot.imgs;shot=null;renderShots();fromImgs(imgs)}
+});
+async function takeShot(files,i){
+  if(!shot||!shot.n)return;
+  try{for(const f of files){if(i>=shot.n)break;shot.imgs[i]=await shrink(f);i++}renderShots();const nx=shot.imgs.findIndex(x=>!x);msg(nx<0?'Alle Seiten aufgenommen.':`Jetzt Seite ${nx+1} aufnehmen.`)}
+  catch(err){renderShots();msg('Foto konnte nicht geöffnet werden – bitte nochmal versuchen.',1)}
+}
+$('#shots').addEventListener('change',e=>{
+  const t=e.target;if(t.type!=='file')return;const files=[...(t.files||[])];if(!files.length)return;
+  if(t.dataset.pdf)handlePdf(files[0]);else takeShot(files,+t.dataset.i);
+});
+const PDFJS='https://cdn.jsdelivr.net/npm/pdfjs-dist@6.2.108/legacy/build/';
+let pdfLib=null;
+async function loadPdf(){if(pdfLib)return pdfLib;await import(PDFJS+'pdf.worker.min.mjs');const m=await import(PDFJS+'pdf.min.mjs');m.GlobalWorkerOptions.workerSrc=PDFJS+'pdf.worker.min.mjs';return pdfLib=m}
+async function renderPage(page){
+  const v0=page.getViewport({scale:1}),sc=Math.min(3,2200/Math.max(v0.width,v0.height)),vp=page.getViewport({scale:sc}),c=document.createElement('canvas');
+  c.width=Math.round(vp.width);c.height=Math.round(vp.height);const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);
+  await page.render({canvasContext:ctx,canvas:c,viewport:vp}).promise;
+  const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.9));return {blob,url:URL.createObjectURL(blob)};
+}
+async function handlePdf(f){
+  shot=null;renderShots();showCapture(true);$('#rev').hidden=true;$('#capT').textContent='PDF auslesen';
+  work('PDF wird geöffnet …<div class="bar"><i></i></div>');
+  try{
+    const lib=await loadPdf(),doc=await lib.getDocument({data:new Uint8Array(await f.arrayBuffer())}).promise,n=Math.min(doc.numPages,10),imgs=[];
+    for(let i=1;i<=n;i++){work(`PDF-Seite ${i} von ${n} wird vorbereitet …<div class="bar"><i></i></div>`);imgs.push(await renderPage(await doc.getPage(i)))}
+    if(doc.numPages>10)msg('Nur die ersten 10 Seiten werden ausgelesen.',1);
+    fromImgs(imgs,true);
+  }catch(err){closeCapture();msg('PDF konnte nicht geöffnet werden'+(err&&err.name==='PasswordException'?' – sie ist passwortgeschützt':'')+'.',1)}
+}
+const b64=blob=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=no;r.readAsDataURL(blob)});
+const GAPI='https://generativelanguage.googleapis.com/v1beta/';
+function gErr(e){const c=e&&e.status,m=(e&&e.message)||'';
+  if(e&&e.name==='TypeError')return 'Keine Verbindung zu Gemini.';
+  if(c===400&&/api key|API_KEY/i.test(m))return 'Der Gemini-Schlüssel ist ungültig.';
+  if(c===401||c===403)return 'Der Gemini-Schlüssel hat keine Berechtigung.';
+  if(c===429)return 'Kostenloses Gemini-Limit gerade erreicht – in einer Minute nochmal versuchen.';
+  if(c===404)return 'Das eingestellte Gemini-Modell gibt es nicht.';
+  return 'Auslesen hat nicht geklappt'+(c?' (Fehler '+c+')':'')+'.'}
+async function gemini(prompt,blobs,signal){
+  const parts=[{text:prompt}];for(const b of blobs)parts.push({inline_data:{mime_type:'image/jpeg',data:await b64(b)}});
+  const body=JSON.stringify({contents:[{role:'user',parts}],generationConfig:{temperature:0,responseMimeType:'application/json'}});
+  const models=[...new Set([cfg.model||'gemini-flash-latest','gemini-flash-latest','gemini-2.5-flash'])];let last=null;
+  for(const m of models){
+    const r=await fetch(GAPI+'models/'+encodeURIComponent(m)+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':cfg.key},body,signal});
+    let j={};try{j=await r.json()}catch(e){}
+    if(r.status===404){last={status:404,message:j.error&&j.error.message};continue}
+    if(!r.ok)throw {status:r.status,message:j.error&&j.error.message};
+    const c=(j.candidates||[])[0]||{};
+    return {text:((c.content&&c.content.parts)||[]).map(p=>p.text||'').join(''),truncated:c.finishReason==='MAX_TOKENS'};
+  }
+  throw last||{status:404};
+}
+async function fromImgs(imgs,isPdf){
+  showCapture(true);$('#rev').hidden=true;$('#capT').textContent=isPdf?'PDF auslesen':'Rechnung auslesen';
+  $('#thumbs').innerHTML=imgs.map((i,k)=>`<img src="${i.url}" alt="Seite ${k+1}">`).join('');
+  if(!cfg.key){work('');openReview(null,imgs);return msg('Bitte zuerst den Gemini-Schlüssel eintragen (Einstellungen). Bis dahin manuell erfassen.',1)}
+  work('Gemini liest die Rechnung inkl. Handschrift … das dauert meist 10–60 Sekunden.<div class="bar"><i></i></div><button class="sbtn" type="button" id="abort" style="margin-top:12px">Abbrechen</button>');
+  ctrl=new AbortController();$('#abort').onclick=()=>{ctrl.abort();closeCapture()};
+  try{
+    const res=await gemini(PROMPT+`\n\nEs folgen ${imgs.length} Foto(s) in Seitenreihenfolge: Foto 1 = Seite 1${imgs.length>1?', Foto 2 = Seite 2 usw.':''}${isPdf?' Die Bilder stammen aus einer PDF-Datei; gibt es dort keine Textmarker oder Handschrift, ist markiert false und bemerkung leer.':''}`,imgs.map(i=>i.blob),ctrl.signal);
+    const t=res.text||'',j=JSON.parse(t.slice(t.indexOf('{'),t.lastIndexOf('}')+1));
+    const pos=(j.positionen||[]).map(p=>({bestellnr:S(p.bestellnummer),bestelldatum:okDate(p.bestelldatum),referenz:S(p.referenznummer),bestellart:S(p.bestellart),versandart:S(p.versandart),lsnr:S(p.lieferschein),lsdatum:okDate(p.lieferscheindatum),
+      bez:S(p.bezeichnung),teilenr:S(p.teilenummer).replace(/^\*\)\s*/,''),menge:p.menge,einheit:S(p.einheit)||'Stk',ep:p.einzelpreis,rabatt:p.rabatt,netto:p.netto,mwst:p.mwst,gesamt:p.gesamt,bemerkung:S(p.bemerkung),markiert:!!p.markiert}));
+    work('');
+    openReview({nr:S(j.rechnungsnummer),auftragsnr:S(j.auftragsnummer),kundennr:S(j.kundennummer),rechnungsdatum:okDate(j.rechnungsdatum),annahmedatum:okDate(j.annahmedatum),annehmer:S(j.annehmer),eingang:okDate(j.eingangsstempel),positionen:pos},imgs);
+    if(res.truncated)msg('Die Rechnung war sehr lang – bitte prüfen, ob alle Positionen da sind.',1);
+    else if(!pos.length)msg('Keine Positionen erkannt – bitte manuell ergänzen.',1);
+  }catch(e){
+    if(ctrl&&ctrl.signal.aborted)return;
+    work('');openReview(null,imgs);
+    msg(gErr(e)+' Du kannst die Positionen manuell eintragen.',1);
+  }
+}
+const toStr=v=>v==null||v===''?'':(typeof v==='number'?num(v):String(v));
+const NUMF=['menge','ep','rabatt','netto','mwst','gesamt'];
+function openReview(inv,imgs){
+  shot=null;renderShots();showCapture(true);if(!imgs.length)$('#thumbs').innerHTML='';
+  const editing=!!(inv&&inv.id);
+  rev={id:editing?inv.id:null,erfasst:inv&&inv.erfasst,dupOk:false,
+    pos:((inv&&inv.positionen)||[]).map(p=>{const o={...p,id:p.id||uid(),ok:editing?p.status!=='offen':false};o.bemerkung=bemOf(p);delete o.kommission;NUMF.forEach(f=>o[f]=['ep','netto','gesamt'].includes(f)&&typeof p[f]==='number'?p[f].toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2}):toStr(p[f]));return o})};
+  if(!rev.pos.length)rev.pos.push(blank());
+  $('#capT').textContent=editing?'Rechnung bearbeiten':'Rechnung prüfen';
+  const v=k=>(inv&&inv[k])||'';
+  $('#fN').value=v('nr');$('#fD').value=v('rechnungsdatum');$('#fA').value=v('auftragsnr');$('#fK').value=v('kundennr');
+  $('#fAn').value=v('annahmedatum');$('#fAh').value=v('annehmer');$('#fE').value=v('eingang');
+  $('#fF').value=editing?today():(v('eingang')||today());
+  $('#rev').hidden=false;renderRev();
+}
+const blank=()=>({id:uid(),bez:'',teilenr:'',bemerkung:'',menge:'1',einheit:'Stk',ep:'',rabatt:'',netto:'',mwst:'19',gesamt:'',status:null,ok:false,markiert:false});
+function renderRev(){
+  let last=null;
+  $('#pos').innerHTML=rev.pos.map((p,i)=>{
+    const key=[p.bestellnr,p.lsnr].join('|');let head='';
+    if(p.bestellnr&&key!==last)head=`<li class="obh"><b>Bestellung ${esc(p.bestellnr)}</b>${p.bestelldatum?' vom '+fd(p.bestelldatum):''}<div class="sub">${p.referenz?'Ref. '+esc(p.referenz)+' · ':''}${p.lsnr?'LS '+esc(p.lsnr)+(p.lsdatum?' am '+fd(p.lsdatum):''):''}${p.versandart?' · '+esc(p.versandart):''}</div></li>`;
+    last=key;
+    return head+`<li class="prow${p.ok?' ok':''}" data-i="${i}">
+    <label class="chk" title="geliefert"><input type="checkbox" data-f="ok" ${p.ok?'checked':''} aria-label="Position geliefert"><span class="box"></span></label>
+    <div><div class="pt"><input class="bz" data-f="bez" value="${esc(p.bez)}" placeholder="Bezeichnung" aria-label="Bezeichnung">${p.markiert?'<span class="mk">markiert</span>':''}<span class="tag st"${p.ok?' hidden':''}>fehlt</span></div>
+    <div class="pm">
+      <label class="w2"><span>Teilenummer</span><input data-f="teilenr" value="${esc(p.teilenr)}"></label>
+      <label class="w2"><span>Bemerkung</span><input data-f="bemerkung" value="${esc(p.bemerkung)}" placeholder="z. B. Benz #95118"></label>
+      <label><span>Menge</span><input class="n" data-f="menge" inputmode="decimal" value="${esc(p.menge)}"></label>
+      <label><span>EP netto</span><input class="n" data-f="ep" inputmode="decimal" value="${esc(p.ep)}"></label>
+      <label><span>Rab. %</span><input class="n" data-f="rabatt" inputmode="decimal" value="${esc(p.rabatt)}"></label>
+      <label><span>Netto €</span><input class="n" data-f="netto" inputmode="decimal" value="${esc(p.netto)}" placeholder="auto"></label>
+      <label><span>Gesamt €</span><input class="n" data-f="gesamt" inputmode="decimal" value="${esc(p.gesamt)}" placeholder="auto"></label>
+      <label><span>&nbsp;</span><button class="x" type="button" data-x="${i}" aria-label="Position entfernen">×</button></label>
+    </div>
+    </div></li>`}).join('');
+  revSum();
+}
+function rowNetto(p){return nettoOf({netto:pn(p.netto),menge:pn(p.menge),ep:pn(p.ep),rabatt:pn(p.rabatt)})}
+function revSum(){
+  const miss=rev.pos.filter(p=>!p.ok),val=miss.reduce((s,p)=>s+(rowNetto(p)||0),0);
+  $('#revSum').textContent=`${rev.pos.length-miss.length} von ${rev.pos.length} geliefert · fehlend: ${miss.length} Pos., ${eur(val)} netto`;
+  $('#allOk').textContent=miss.length?'Alle anhaken':'Alle abhaken';
+  $('#byMark').hidden=!rev.pos.some(p=>p.markiert);
+  $('#save').textContent=!rev.id&&!miss.length?'Nichts fehlt – schließen':'Speichern';
+}
+$('#pos').addEventListener('input',e=>{const li=e.target.closest('li[data-i]'),f=e.target.dataset.f;if(!li||!f)return;const p=rev.pos[+li.dataset.i];
+  if(f==='ok'){p.ok=e.target.checked;li.classList.toggle('ok',p.ok);li.querySelector('.st').hidden=p.ok}
+  else{p[f]=e.target.value;if(f==='menge'||f==='ep'||f==='rabatt'){p.netto='';p.gesamt='';li.querySelector('[data-f=netto]').value='';li.querySelector('[data-f=gesamt]').value=''}else if(f==='netto'){p.gesamt='';li.querySelector('[data-f=gesamt]').value=''}}
+  revSum()});
+$('#pos').addEventListener('click',e=>{const x=e.target.closest('[data-x]');if(!x)return;rev.pos.splice(+x.dataset.x,1);if(!rev.pos.length)rev.pos.push(blank());renderRev()});
+$('#addPos').onclick=()=>{const prev=rev.pos[rev.pos.length-1]||{};const b=blank();['bestellnr','bestelldatum','referenz','bestellart','versandart','lsnr','lsdatum'].forEach(k=>b[k]=prev[k]||'');rev.pos.push(b);renderRev();const l=$('#pos').lastElementChild;l&&l.querySelector('.bz').focus()};
+$('#allOk').onclick=()=>{const all=rev.pos.every(p=>p.ok);rev.pos.forEach(p=>p.ok=!all);renderRev()};
+$('#byMark').onclick=()=>{rev.pos.forEach(p=>p.ok=!p.markiert);renderRev();msg('Markierte Positionen stehen jetzt auf „fehlt“ – bitte kurz prüfen.')};
+function closeCapture(){if(ctrl)ctrl.abort();ctrl=null;rev=null;shot=null;renderShots();work('');$('#rev').hidden=true;$('#thumbs').innerHTML='';showCapture(false);render()}
+$('#cancel').onclick=closeCapture;
+$('#rev').addEventListener('submit',e=>{
+  e.preventDefault();if(!rev)return;
+  const fehlt=okDate($('#fF').value)||today(),t=today(),editing=!!rev.id;
+  const pos=rev.pos.filter(p=>S(p.bez)||S(p.teilenr)||pn(p.ep)!=null).map(p=>{
+    const o={id:p.id,bestellnr:S(p.bestellnr),bestelldatum:p.bestelldatum||'',referenz:S(p.referenz),bestellart:S(p.bestellart),versandart:S(p.versandart),lsnr:S(p.lsnr),lsdatum:p.lsdatum||'',
+      bez:S(p.bez),teilenr:S(p.teilenr),bemerkung:S(p.bemerkung),menge:pn(p.menge),einheit:S(p.einheit)||'Stk',ep:pn(p.ep),rabatt:pn(p.rabatt),netto:pn(p.netto),mwst:pn(p.mwst),gesamt:pn(p.gesamt),
+      markiert:!!p.markiert,fehltSeit:p.fehltSeit||null,kontrolle:p.kontrolle||null,nachAm:p.nachAm||null};
+    if(o.netto==null)o.netto=nettoOf(o);if(o.gesamt==null)o.gesamt=bruttoOf(o);
+    if(!p.ok){o.status='offen';o.fehltSeit=p.status==='offen'&&p.fehltSeit?p.fehltSeit:fehlt;o.nachAm=null;if(p.status!=='offen')o.kontrolle=null}
+    else if(p.status==='offen'){o.status='nachgeliefert';o.nachAm=t}
+    else o.status=p.status||'geliefert';
+    return o});
+  const missing=pos.filter(p=>p.status==='offen').length;
+  if(!editing&&!missing){closeCapture();return msg('Alles geliefert – nichts nachzuhalten.')}
+  if(!pos.length)return msg('Bitte mindestens eine Position eintragen.',1);
+  const nr=$('#fN').value.trim();
+  if(!editing&&!rev.dupOk&&nr&&invs.some(r=>(r.nr||'')===nr)){rev.dupOk=true;return msg('Rechnung '+nr+' ist schon erfasst. Nochmal „Speichern“ tippen, um sie trotzdem anzulegen.',1)}
+  const doc={lieferant:LIEFERANT,nr,auftragsnr:$('#fA').value.trim(),kundennr:$('#fK').value.trim(),rechnungsdatum:okDate($('#fD').value)||null,annahmedatum:okDate($('#fAn').value)||null,
+    annehmer:$('#fAh').value.trim(),eingang:okDate($('#fE').value)||null,erfasst:rev.erfasst||t,positionen:pos};
+  const id=rev.id||newId();doc.id=id;const ix=invs.findIndex(x=>x.id===id);if(ix>=0)invs[ix]=doc;else invs.push(doc);
+  if(persist())msg(missing?`Gespeichert – ${missing} fehlende Position${missing>1?'en':''} werden nachgehalten.`:'Gespeichert.');
+  closeCapture();
+});
+$('#shoot').onclick=startShots;
+$('#manual').onclick=()=>openReview(null,[]);
+
+/* ---------- Excel ---------- */
+const HEAD=['Rechnungsnr.','Rechnungsdatum','Auftragsnr.','Kundennr.','Bestellnr.','Bestelldatum','Referenznr.','Lieferschein','LS-Datum','Bezeichnung','Teilenummer','Bemerkung','Menge','Einheit','EP netto','Rabatt %','Netto','MwSt %','Gesamt brutto','Eingang','Fehlt seit'];
+const DATE_I=[1,5,8,19,20],MONEY_I=[14,16,18];
+const rowOf=(r,p)=>[r.nr||'',r.rechnungsdatum||'',r.auftragsnr||'',r.kundennr||'',p.bestellnr||'',p.bestelldatum||'',p.referenz||'',p.lsnr||'',p.lsdatum||'',p.bez||'',p.teilenr||'',bemOf(p),p.menge,p.einheit||'',p.ep,p.rabatt,nettoOf(p),p.mwst,bruttoOf(p),r.eingang||'',p.fehltSeit||''];
+function exportRows(){
+  const t=today();
+  const open=grouped(openItems(true)).flatMap(({r,items})=>items.map(p=>[...rowOf(r,p),days(p.fehltSeit,t),p.kontrolle||'']));
+  const done=[];invs.forEach(r=>(r.positionen||[]).forEach(p=>{if(p.status==='nachgeliefert')done.push([...rowOf(r,p),p.nachAm||'',days(p.fehltSeit,p.nachAm||t)])}));
+  done.sort((a,b)=>String(a[20]).localeCompare(String(b[20])));
+  return {open,done};
+}
+function sheet(head,rows,dateCols){
+  const toD=s=>s?new Date(s+'T00:00:00'):null;
+  const data=[head,...rows.map(r=>r.map((v,i)=>dateCols.includes(i)?toD(v):(v==null?'':v)))];
+  const ws=XLSX.utils.aoa_to_sheet(data,{cellDates:true,dateNF:'dd.mm.yyyy'});
+  for(let R=1;R<data.length;R++)for(const C of MONEY_I){const c=ws[XLSX.utils.encode_cell({r:R,c:C})];if(c&&c.t==='n')c.z='#,##0.00 "€"'}
+  ws['!cols']=head.map(h=>({wch:h==='Bezeichnung'?24:h==='Bemerkung'?18:Math.max(10,h.length+2)}));
+  if(rows.length)ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:rows.length,c:head.length-1}})};
+  ws['!freeze']={xSplit:0,ySplit:1};
+  return ws;
+}
+$('#export').onclick=async()=>{
+  const {open,done}=exportRows();
+  if(!open.length&&!done.length)return msg('Noch nichts zum Exportieren.');
+  const HO=[...HEAD,'Tage offen','Zuletzt geprüft'];
+  if(!window.XLSX){
+    const fmt=(v,i)=>DATE_I.includes(i)||i===HO.length-1?fd(v):typeof v==='number'?num(v):String(v??'');
+    const tsv=[HO,...open.map(r=>r.map(fmt))].map(r=>r.join('\t')).join('\n');
+    try{await navigator.clipboard.writeText(tsv);msg('Excel-Bibliothek nicht geladen (offline?) – Tabelle wurde kopiert, in Excel einfügen.')}catch(e){msg('Export gerade nicht möglich – bitte mit Internetverbindung erneut versuchen.',1)}
+    return;
+  }
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,sheet(HO,open,[...DATE_I,22]),'Fehlmengen');
+  XLSX.utils.book_append_sheet(wb,sheet([...HEAD,'Nachgeliefert am','Tage bis Lieferung'],done,[...DATE_I,21]),'Nachgeliefert');
+  const buf=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  download(`Fehlmengen_BOB_${today()}.xlsx`,new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+};
+
+/* ---------- Start ---------- */
+render();
+/* ---------- Einstellungen ---------- */
+function keyUI(){$('#setup').hidden=!!cfg.key;$('#key').value=cfg.key||'';$('#model').value=cfg.model||'gemini-flash-latest'}
+async function testKey(k,out){
+  out.className='sub';out.textContent='Teste Schlüssel …';
+  try{const r=await fetch(GAPI+'models?pageSize=1',{headers:{'x-goog-api-key':k}});let j={};try{j=await r.json()}catch(e){}
+    if(!r.ok)throw {status:r.status,message:j.error&&j.error.message};
+    out.className='ok-t';out.textContent='Schlüssel funktioniert.';return true}
+  catch(e){out.className='bad-t';out.textContent=gErr(e)+(e&&e.status===400?'':'');return false}
+}
+$('#key1Save').onclick=async()=>{const k=$('#key1').value.trim();if(!k)return;cfg.key=k;saveCfg();$('#key1').value='';const ok=await testKey(k,$('#key1State'));if(!ok&&/ungültig|Berechtigung/.test($('#key1State').textContent)){cfg.key='';saveCfg()}keyUI();if(!ok){$('#setup').hidden=false}else msg('Schlüssel gespeichert – du kannst loslegen.')};
+$('#keySave').onclick=async()=>{cfg.key=$('#key').value.trim();cfg.model=$('#model').value.trim()||'gemini-flash-latest';saveCfg();keyUI();if(cfg.key)await testKey(cfg.key,$('#keyState'));else $('#keyState').textContent='Kein Schlüssel eingetragen.'};
+$('#ics').onclick=()=>{
+  const d=new Date();d.setDate(d.getDate()+((8-d.getDay())%7||7));const ymd=iso(d).replace(/-/g,''),url=location.href.split('#')[0];
+  const rule=ival%7===0?'FREQ=WEEKLY;INTERVAL='+(ival/7):'FREQ=DAILY;INTERVAL='+ival;
+  const txt=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Fehlmengen//DE','BEGIN:VEVENT','UID:fehlmengen-'+Date.now()+'@fehlmengen','DTSTAMP:'+new Date().toISOString().replace(/[-:]/g,'').slice(0,15)+'Z',
+    'DTSTART;TZID=Europe/Berlin:'+ymd+'T073000','DURATION:PT15M','RRULE:'+rule,'SUMMARY:Fehlmengen prüfen (BOB)','DESCRIPTION:Offene Nachlieferungen kontrollieren: '+url,'URL:'+url,
+    'BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:Fehlmengen prüfen','TRIGGER:PT0M','END:VALARM','END:VEVENT','END:VCALENDAR'].join('\r\n');
+  download('Fehlmengen-Erinnerung.ics',new Blob([txt],{type:'text/calendar'}));
+};
+$('#bkOut').onclick=()=>download(`Fehlmengen-Sicherung_${today()}.json`,new Blob([JSON.stringify({app:'fehlmengen-bob',version:1,exportiert:today(),intervall:ival,rechnungen:invs},null,1)],{type:'application/json'}));
+$('#bkIn').addEventListener('change',async e=>{
+  const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;
+  try{const j=JSON.parse(await f.text()),list=Array.isArray(j)?j:j.rechnungen;if(!Array.isArray(list))throw 0;
+    let n=0;for(const r of list){if(!r||!r.id||!Array.isArray(r.positionen))continue;const ix=invs.findIndex(x=>x.id===r.id);if(ix>=0)invs[ix]=r;else invs.push(r);n++}
+    persist();render();msg(n+' Rechnung'+(n===1?'':'en')+' aus der Sicherung geladen.')}
+  catch(err){msg('Die Datei ist keine gültige Sicherung.',1)}
+});
+window.addEventListener('storage',e=>{if(e.key===K+'rechnungen'){invs=lsGet('rechnungen',[]);render()}});
+
+/* ---------- Start ---------- */
+invs=lsGet('rechnungen',[]);ival=+cfg.intervall||7;$('#ival').value=String(ival);ready=true;keyUI();render();
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+}
+</script>
+</body>
+</html>
