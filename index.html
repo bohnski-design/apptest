@@ -178,18 +178,29 @@ input,select{font:16px 'Archivo',sans-serif;min-height:44px;padding:8px 10px;bor
     <details id="setBox"><summary>Einstellungen</summary>
       <div class="setgrid">
         <div><h4>Auswertung der Fotos</h4>
-          <label class="f" style="max-width:320px;display:block"><span>Auswerten mit</span>
-            <select id="prov"><option value="claude">Claude (Anthropic)</option><option value="gemini">Gemini (Google)</option></select></label></div>
-        <div><h4>Claude</h4>
-          <label class="f"><span>API-Schlüssel von platform.claude.com (nur auf diesem Gerät)</span><input id="ckey" type="password" autocomplete="off" placeholder="sk-ant-…"></label>
-          <label class="f" style="margin-top:8px"><span>Modell</span><input id="cmodel" autocomplete="off" placeholder="claude-sonnet-5-5"></label>
-          <div class="krow"><button class="sbtn ok" type="button" id="ckeySave">Speichern &amp; testen</button></div>
-          <div id="ckeyState" class="sub" style="margin-top:6px"></div></div>
+          <label class="f" style="max-width:320px;display:block"><span>Zuerst auswerten mit</span>
+            <select id="prov"><option value="gemini">Gemini (Google, kostenlos)</option><option value="groq">Groq (kostenlos)</option><option value="openrouter">OpenRouter (kostenlos)</option><option value="claude">Claude (Anthropic, kostenpflichtig)</option></select></label>
+          <label style="display:flex;gap:10px;align-items:center;margin-top:10px;min-height:44px"><input type="checkbox" id="fallback" style="width:22px;height:22px;min-height:0"> <span>Bei Problemen automatisch die anderen KIs versuchen (nur die mit Schlüssel)</span></label></div>
         <div><h4>Gemini</h4>
-          <label class="f"><span>API-Schlüssel (nur auf diesem Gerät)</span><input id="key" type="password" autocomplete="off"></label>
-          <label class="f" style="margin-top:8px"><span>Modell</span><input id="model" autocomplete="off" placeholder="gemini-flash-latest"></label>
-          <div class="krow"><button class="sbtn ok" type="button" id="keySave">Speichern &amp; testen</button></div>
-          <div id="keyState" class="sub" style="margin-top:6px"></div></div>
+          <label class="f"><span>API-Schlüssel von aistudio.google.com/app/apikey</span><input id="k_gemini" type="password" autocomplete="off" placeholder=""></label>
+          <label class="f" style="margin-top:8px"><span>Modell (leer = automatisch)</span><input id="m_gemini" autocomplete="off" placeholder="gemini-flash-latest"></label>
+          <div class="krow"><button class="sbtn ok" type="button" data-ks="gemini">Speichern &amp; testen</button></div>
+          <div id="s_gemini" class="sub" style="margin-top:6px"></div></div>
+        <div><h4>Groq</h4>
+          <label class="f"><span>API-Schlüssel von console.groq.com/keys</span><input id="k_groq" type="password" autocomplete="off" placeholder="gsk_…"></label>
+          <label class="f" style="margin-top:8px"><span>Modell (leer = automatisch)</span><input id="m_groq" autocomplete="off" placeholder="automatisch"></label>
+          <div class="krow"><button class="sbtn ok" type="button" data-ks="groq">Speichern &amp; testen</button></div>
+          <div id="s_groq" class="sub" style="margin-top:6px"></div></div>
+        <div><h4>OpenRouter</h4>
+          <label class="f"><span>API-Schlüssel von openrouter.ai/keys</span><input id="k_openrouter" type="password" autocomplete="off" placeholder="sk-or-…"></label>
+          <label class="f" style="margin-top:8px"><span>Modell (leer = automatisch)</span><input id="m_openrouter" autocomplete="off" placeholder="openrouter/free"></label>
+          <div class="krow"><button class="sbtn ok" type="button" data-ks="openrouter">Speichern &amp; testen</button></div>
+          <div id="s_openrouter" class="sub" style="margin-top:6px"></div></div>
+        <div><h4>Claude</h4>
+          <label class="f"><span>API-Schlüssel von platform.claude.com (kostenpflichtig)</span><input id="k_claude" type="password" autocomplete="off" placeholder="sk-ant-…"></label>
+          <label class="f" style="margin-top:8px"><span>Modell (leer = automatisch)</span><input id="m_claude" autocomplete="off" placeholder="claude-sonnet-5-5"></label>
+          <div class="krow"><button class="sbtn ok" type="button" data-ks="claude">Speichern &amp; testen</button></div>
+          <div id="s_claude" class="sub" style="margin-top:6px"></div></div>
         <div><h4>Erinnerung</h4>
           <label class="f" style="max-width:280px;display:block"><span>Kontrolle fällig alle</span>
             <select id="ival"><option value="3">3 Tage</option><option value="7" selected>7 Tage</option><option value="14">14 Tage</option><option value="30">30 Tage</option></select></label>
@@ -227,9 +238,14 @@ const S=v=>v==null?'':String(v).trim();
 let invs=[],ival=7,ready=false,rev=null,ctrl=null,delArm=null,qtext='';
 const K='fehlmengen-bob.';
 const lsGet=(k,d)=>{try{const v=localStorage.getItem(K+k);return v==null?d:JSON.parse(v)}catch(e){return d}};
-let cfg=Object.assign({key:'',model:'gemini-flash-latest',intervall:7,provider:'claude',ckey:'',cmodel:'claude-sonnet-5-5'},lsGet('cfg',{}));
-const PN=()=>cfg.provider==='gemini'?'Gemini':'Claude';
-const curKey=()=>cfg.provider==='gemini'?cfg.key:cfg.ckey;
+let cfg=Object.assign({key:'',model:'gemini-flash-latest',intervall:7,provider:'gemini',ckey:'',cmodel:'claude-sonnet-5-5',qkey:'',qmodel:'',okey:'',omodel:'',fallback:true},lsGet('cfg',{}));
+if(cfg.provider==='claude'&&!cfg.ckey)cfg.provider='gemini';
+const PROV={gemini:{n:'Gemini',k:'key',m:'model',dm:'gemini-flash-latest',hint:'Den Schlüssel bekommst du kostenlos auf aistudio.google.com/app/apikey.'},
+  groq:{n:'Groq',k:'qkey',m:'qmodel',dm:'',hint:'Den Schlüssel bekommst du kostenlos auf console.groq.com/keys (Konto anlegen → API Keys → Create).'},
+  openrouter:{n:'OpenRouter',k:'okey',m:'omodel',dm:'',hint:'Den Schlüssel bekommst du kostenlos auf openrouter.ai/keys. Unter openrouter.ai/settings/privacy ggf. kostenlose Modelle erlauben.'},
+  claude:{n:'Claude',k:'ckey',m:'cmodel',dm:'claude-sonnet-5-5',hint:'Den Schlüssel erstellst du auf platform.claude.com unter „API Keys“ (Guthaben nötig).'}};
+const PN=p=>PROV[p||cfg.provider].n;
+const curKey=()=>cfg[PROV[cfg.provider].k];
 const msg=(t,err)=>{const m=$('#msg');m.textContent=t||'';m.className='msg'+(err?' err':'');clearTimeout(msg.t);if(t)msg.t=setTimeout(()=>m.textContent='',6000)};
 const lsSet=(k,v)=>{try{localStorage.setItem(K+k,JSON.stringify(v));return true}catch(e){msg('Speichern auf dem Gerät fehlgeschlagen – Speicher voll oder gesperrt.',1);return false}};
 const persist=()=>lsSet('rechnungen',invs);
@@ -393,14 +409,17 @@ function gErr(e,pn){const c=e&&e.status,m=(e&&e.message)||'',P=pn||PN();
   if(c===403)return 'Der '+P+'-Schlüssel hat keine Berechtigung.';
   if(c===429)return P+'-Limit erreicht – mehrere Versuche ohne Erfolg. Bitte in ein paar Minuten nochmal.';
   if(c===500||c===503||c===504||c===529)return P+' ist gerade überlastet – mehrere Versuche ohne Erfolg. Bitte später nochmal.';
+  if(e&&e.pages)return 'Groq kann höchstens 3 Seiten auf einmal lesen.';
+  if(/data policy|privacy/i.test(m))return 'OpenRouter: kostenlose Modelle sind gesperrt – unter openrouter.ai/settings/privacy erlauben.';
+  if(c===402)return P+': Für dieses Modell ist Guthaben nötig – Modell-Feld leer lassen.';
   if(c===404)return 'Das eingestellte '+P+'-Modell gibt es nicht.';
   return 'Auslesen hat nicht geklappt'+(c?' (Fehler '+c+')':'')+'.'}
 const sleep=(ms,signal)=>new Promise((ok,no)=>{const t=setTimeout(ok,ms);signal&&signal.addEventListener('abort',()=>{clearTimeout(t);no({name:'AbortError'})},{once:true})});
-async function gemini(prompt,blobs,signal,onWait){
+async function gemini(prompt,blobs,signal,onWait,quick){
   const parts=[];for(const b of blobs)parts.push({inline_data:{mime_type:'image/jpeg',data:await b64(b)}});parts.push({text:prompt});
   const mk=schema=>JSON.stringify({contents:[{role:'user',parts}],generationConfig:Object.assign({temperature:0,responseMimeType:'application/json'},schema?{responseSchema:SCHEMA}:{})});
   const models=[...new Set([cfg.model||'gemini-flash-latest','gemini-flash-latest','gemini-2.5-flash'])];let last=null;
-  const WAIT=[5,12,25];
+  const WAIT=quick?[4]:[5,12,25];
   for(const m of models){
     let schema=true,tries=0;
     while(true){
@@ -434,10 +453,10 @@ const JSON_SPEC=`
 Antworte AUSSCHLIESSLICH mit einem einzigen JSON-Objekt, ohne Markdown und ohne Text davor oder danach. Felder:
 rechnungsnummer, auftragsnummer, kundennummer, annehmer (Text); rechnungsdatum, annahmedatum, eingangsstempel (YYYY-MM-DD oder null);
 positionen: Liste von Objekten mit bestellnummer, referenznummer, bestellart, versandart, lieferschein, bezeichnung, teilenummer, einheit, bemerkung (Text); bestelldatum, lieferscheindatum (YYYY-MM-DD oder null); menge, einzelpreis, rabatt, netto, mwst, gesamt (Zahl oder null); markiert (true/false).`;
-async function claudeCall(prompt,blobs,signal,onWait){
+async function claudeCall(prompt,blobs,signal,onWait,quick){
   const content=[];for(const b of blobs)content.push({type:'image',source:{type:'base64',media_type:'image/jpeg',data:await b64(b)}});content.push({type:'text',text:prompt+JSON_SPEC});
   const body=JSON.stringify({model:cfg.cmodel||'claude-sonnet-5-5',max_tokens:16000,messages:[{role:'user',content}]});
-  const WAIT=[5,12,25];let tries=0;
+  const WAIT=quick?[4]:[5,12,25];let tries=0;
   while(true){
     const tc=new AbortController(),to=setTimeout(()=>tc.abort(),150000),fw=()=>tc.abort();signal&&signal.addEventListener('abort',fw,{once:true});
     let r;try{r=await fetch(CAPI+'messages',{method:'POST',headers:cHead(cfg.ckey),body,signal:tc.signal})}
@@ -467,6 +486,56 @@ function showRaw(){
   const box=$('#rawBox');if(!box)return;box.hidden=!lastRaw;if(!lastRaw)return;
   $('#rawTxt').textContent=JSON.stringify(lastRaw,null,1);
 }
+const OA={groq:'https://api.groq.com/openai/v1/',openrouter:'https://openrouter.ai/api/v1/'};
+const oaHead=(p,k)=>Object.assign({'Authorization':'Bearer '+k,'Content-Type':'application/json'},p==='openrouter'?{'HTTP-Referer':location.origin,'X-Title':'Fehlmengen'}:{});
+async function smallB64(blob,max,q){
+  const url=URL.createObjectURL(blob),img=new Image();await new Promise((ok,no)=>{img.onload=ok;img.onerror=no;img.src=url});
+  const sc=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight)),c=document.createElement('canvas');c.width=Math.round(img.naturalWidth*sc);c.height=Math.round(img.naturalHeight*sc);
+  c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);return c.toDataURL('image/jpeg',q).split(',')[1];
+}
+let groqAuto=null;
+async function groqModel(signal){
+  if(cfg.qmodel)return cfg.qmodel;if(groqAuto)return groqAuto;
+  const r=await fetch(OA.groq+'models',{headers:oaHead('groq',cfg.qkey),signal});let j={};try{j=await r.json()}catch(e){}
+  if(!r.ok)throw {status:r.status,message:j.error&&j.error.message,prov:'groq'};
+  const ids=(j.data||[]).filter(m=>m.active!==false).map(m=>m.id);
+  for(const re of [/qwen.*(vl|3\.8|3-8|vision)/i,/llama-4/i,/(vision|[-_]vl\b|vl-)/i,/gemma/i]){const hit=ids.find(i=>re.test(i));if(hit)return groqAuto=hit}
+  throw {status:404,message:'Kein Bild-Modell bei Groq gefunden',prov:'groq'};
+}
+async function oaCall(p,prompt,blobs,signal,onWait,quick){
+  if(p==='groq'&&blobs.length>3)throw {pages:true,prov:p};
+  const imgs=[];for(const b of blobs)imgs.push(await smallB64(b,1600,.82));
+  const model=p==='groq'?await groqModel(signal):(cfg.omodel||'openrouter/free');
+  const body=JSON.stringify({model,temperature:0,messages:[{role:'user',content:[{type:'text',text:prompt+JSON_SPEC},...imgs.map(d=>({type:'image_url',image_url:{url:'data:image/jpeg;base64,'+d}}))]}]});
+  const WAIT=quick?[4]:[5,12,25];let tries=0;
+  while(true){
+    const tc=new AbortController(),to=setTimeout(()=>tc.abort(),150000),fw=()=>tc.abort();signal&&signal.addEventListener('abort',fw,{once:true});
+    let r;try{r=await fetch(OA[p]+'chat/completions',{method:'POST',headers:oaHead(p,cfg[PROV[p].k]),body,signal:tc.signal})}
+    catch(err){if(signal&&signal.aborted)throw err;if(tc.signal.aborted)throw {timeout:true,prov:p};err.prov=p;throw err}
+    finally{clearTimeout(to);signal&&signal.removeEventListener('abort',fw)}
+    const raw=await r.text();let j={};try{j=JSON.parse(raw)}catch(e){}
+    lastRaw={ki:PN(p),modell:j.model||model,versuch:tries+1,status:r.status,antwort:raw.slice(0,6000)};
+    const st=j.error?(j.error.code&&+j.error.code)||r.status:r.status,em=(j.error&&(j.error.message||(j.error.metadata&&j.error.metadata.raw)))||'';
+    if([429,500,502,503,504,529].includes(st)){
+      if(tries<WAIT.length){const w=WAIT[tries++];for(let k=w;k>0;k--){onWait&&onWait(k,st);await sleep(1000,signal)}continue}
+      throw {status:st,message:em,prov:p};
+    }
+    if(!r.ok||j.error)throw {status:st===200?500:st,message:em,prov:p};
+    const ch=(j.choices||[])[0]||{},mc=ch.message&&ch.message.content;
+    const text=Array.isArray(mc)?mc.map(x=>x.text||'').join(''):(mc||'');
+    lastRaw.finish=ch.finish_reason||'';
+    return {text,truncated:ch.finish_reason==='length',finish:ch.finish_reason==='stop'?'STOP':ch.finish_reason};
+  }
+}
+function callAI(p,prompt,blobs,signal,onWait,quick){
+  if(p==='gemini')return gemini(prompt,blobs,signal,onWait,quick);
+  if(p==='claude')return claudeCall(prompt,blobs,signal,onWait,quick);
+  return oaCall(p,prompt,blobs,signal,onWait,quick);
+}
+function aiChain(){
+  const first=cfg.provider,rest=cfg.fallback!==false?['gemini','groq','openrouter'].filter(x=>x!==first):[];
+  return [first,...rest].filter(p=>cfg[PROV[p].k]);
+}
 let runId=0;
 function workBtns(err){return `<div class="krow" style="margin-top:14px"><button class="sbtn ok" type="button" data-w="retry">Wiederholen</button>${err?'<button class="sbtn" type="button" data-w="manual">Manuell erfassen</button>':''}<button class="sbtn" type="button" data-w="cancel">Abbrechen</button></div>`}
 let lastImgs=null,lastPdf=false;
@@ -478,26 +547,35 @@ async function fromImgs(imgs,isPdf){
   const my=++runId;lastImgs=imgs;lastPdf=!!isPdf;
   showCapture(true);$('#rev').hidden=true;$('#rawBox').hidden=true;$('#capT').textContent=isPdf?'PDF auslesen':'Rechnung auslesen';
   $('#thumbs').innerHTML=imgs.map((i,k)=>`<img src="${i.url}" alt="Seite ${k+1}">`).join('');
-  if(!curKey()){work('');openReview(null,imgs);return msg('Bitte zuerst den '+PN()+'-Schlüssel eintragen (Einstellungen). Bis dahin manuell erfassen.',1)}
-  work('<span id="wtxt">'+PN()+' liest die Rechnung inkl. Handschrift … das dauert meist 10–60 Sekunden.</span><div class="bar"><i></i></div>'+workBtns(false));
+  const chain=aiChain();
+  if(!chain.length){work('');openReview(null,imgs);return msg('Bitte zuerst einen API-Schlüssel eintragen (Einstellungen). Bis dahin manuell erfassen.',1)}
   ctrl=new AbortController();const sig=ctrl.signal;
-  try{
-    const res=await (cfg.provider==='gemini'?gemini:claudeCall)(PROMPT+`\n\nEs folgen ${imgs.length} Foto(s) in Seitenreihenfolge: Foto 1 = Seite 1${imgs.length>1?', Foto 2 = Seite 2 usw.':''}${isPdf?' Die Bilder stammen aus einer PDF-Datei; gibt es dort keine Textmarker oder Handschrift, ist markiert false und bemerkung leer.':''}`,imgs.map(i=>i.blob),sig,(k,st)=>{if(my!==runId)return;const p=$('#wtxt');if(p)p.textContent=`${PN()} ist gerade ${st===429?'am Limit':'ausgelastet'} – neuer Versuch in ${k} s …`});
-    if(my!==runId)return;
-    const j=parseInvoice(res.text);
-    const pos=(j.positionen||[]).map(p=>({bestellnr:S(p.bestellnummer),bestelldatum:okDate(p.bestelldatum),referenz:S(p.referenznummer),bestellart:S(p.bestellart),versandart:S(p.versandart),lsnr:S(p.lieferschein),lsdatum:okDate(p.lieferscheindatum),
-      bez:S(p.bezeichnung),teilenr:S(p.teilenummer).replace(/^\*\)\s*/,''),menge:p.menge,einheit:S(p.einheit)||'Stk',ep:p.einzelpreis,rabatt:p.rabatt,netto:p.netto,mwst:p.mwst,gesamt:p.gesamt,bemerkung:S(p.bemerkung),markiert:!!p.markiert}));
-    if(!pos.length&&!S(j.rechnungsnummer)){throw {empty:true,finish:res.finish}}
-    work('');
-    openReview({nr:S(j.rechnungsnummer),auftragsnr:S(j.auftragsnummer),kundennr:S(j.kundennummer),rechnungsdatum:okDate(j.rechnungsdatum),annahmedatum:okDate(j.annahmedatum),annehmer:S(j.annehmer),eingang:okDate(j.eingangsstempel),positionen:pos},imgs);
-    showRaw();
-    if(res.truncated)msg('Die Rechnung war sehr lang – bitte prüfen, ob alle Positionen da sind.',1);
-    else if(!pos.length)msg(PN()+' hat keine Positionen erkannt – bitte ergänzen oder „Abbrechen“ und neu fotografieren.',1);
-  }catch(e){
-    if(my!==runId||sig.aborted)return;
-    const t=e&&e.empty?PN()+' hat nichts erkannt'+(e.finish&&e.finish!=='STOP'?' ('+e.finish+')':'')+'. Ist das Foto scharf und vollständig?':e&&e.parse?'Die Antwort von '+PN()+' war nicht lesbar.':gErr(e);
-    work(`<b>${esc(t)}</b><div class="sub" style="margin-top:4px">Die Fotos bleiben erhalten – du kannst es direkt nochmal versuchen.</div>`+workBtns(true));showRaw();
+  const prompt=PROMPT+`\n\nEs folgen ${imgs.length} Foto(s) in Seitenreihenfolge: Foto 1 = Seite 1${imgs.length>1?', Foto 2 = Seite 2 usw.':''}${isPdf?' Die Bilder stammen aus einer PDF-Datei; gibt es dort keine Textmarker oder Handschrift, ist markiert false und bemerkung leer.':''}`;
+  const fails=[];
+  for(let i=0;i<chain.length;i++){
+    const p=chain[i],quick=i<chain.length-1;
+    work(`<span id="wtxt">${PN(p)} liest die Rechnung inkl. Handschrift … das dauert meist 10–60 Sekunden.</span>${fails.length?`<div class="sub" style="margin-top:4px">${fails.map(f=>esc(PN(f.p))+': '+esc(f.t)).join('<br>')}</div>`:''}<div class="bar"><i></i></div>`+workBtns(false));
+    try{
+      const res=await callAI(p,prompt,imgs.map(x=>x.blob),sig,(k,st)=>{if(my!==runId)return;const el=$('#wtxt');if(el)el.textContent=`${PN(p)} ist gerade ${st===429?'am Limit':'ausgelastet'} – neuer Versuch in ${k} s …`},quick);
+      if(my!==runId)return;
+      let j;try{j=parseInvoice(res.text)}catch(e){throw {parse:true}}
+      const pos=(j.positionen||[]).map(x=>({bestellnr:S(x.bestellnummer),bestelldatum:okDate(x.bestelldatum),referenz:S(x.referenznummer),bestellart:S(x.bestellart),versandart:S(x.versandart),lsnr:S(x.lieferschein),lsdatum:okDate(x.lieferscheindatum),
+        bez:S(x.bezeichnung),teilenr:S(x.teilenummer).replace(/^\*\)\s*/,''),menge:pn(x.menge),einheit:S(x.einheit)||'Stk',ep:pn(x.einzelpreis),rabatt:pn(x.rabatt),netto:pn(x.netto),mwst:pn(x.mwst),gesamt:pn(x.gesamt),bemerkung:S(x.bemerkung),markiert:x.markiert===true||x.markiert==='true'}));
+      if(!pos.length&&!S(j.rechnungsnummer))throw {empty:true,finish:res.finish};
+      work('');
+      openReview({nr:S(j.rechnungsnummer),auftragsnr:S(j.auftragsnummer),kundennr:S(j.kundennummer),rechnungsdatum:okDate(j.rechnungsdatum),annahmedatum:okDate(j.annahmedatum),annehmer:S(j.annehmer),eingang:okDate(j.eingangsstempel),positionen:pos},imgs);
+      showRaw();
+      if(res.truncated)msg('Die Rechnung war sehr lang – bitte prüfen, ob alle Positionen da sind.',1);
+      else if(!pos.length)msg(PN(p)+' hat keine Positionen erkannt – bitte ergänzen oder „Abbrechen“ und neu fotografieren.',1);
+      else msg(fails.length?`Ausgelesen mit ${PN(p)} (${fails.map(f=>PN(f.p)).join(', ')} hat nicht geklappt). Bitte prüfen.`:`Ausgelesen mit ${PN(p)} – bitte prüfen.`);
+      return;
+    }catch(e){
+      if(my!==runId||sig.aborted)return;
+      const t=e&&e.empty?'hat nichts erkannt'+(e.finish&&e.finish!=='STOP'?' ('+e.finish+')':''):e&&e.parse?'Antwort war nicht lesbar':gErr(e,PN(p));
+      fails.push({p,t});
+    }
   }
+  work(`<b>Auslesen hat nicht geklappt.</b><div class="sub" style="margin-top:6px">${fails.map(f=>'<b>'+esc(PN(f.p))+':</b> '+esc(f.t)).join('<br>')}</div><div class="sub" style="margin-top:6px">Die Fotos bleiben erhalten – du kannst es direkt nochmal versuchen.${aiChain().length<2?' Tipp: Weitere KIs in den Einstellungen eintragen, dann springt die App automatisch um.':''}</div>`+workBtns(true));showRaw();
 }
 const toStr=v=>v==null||v===''?'':(typeof v==='number'?num(v):String(v));
 const NUMF=['menge','ep','rabatt','netto','mwst','gesamt'];
@@ -626,27 +704,32 @@ $('#export').onclick=async()=>{
 render();
 /* ---------- Einstellungen ---------- */
 function keyUI(){
-  const g=cfg.provider==='gemini';$('#prov').value=cfg.provider;
+  $('#prov').value=cfg.provider;$('#fallback').checked=cfg.fallback!==false;
   $('#setup').hidden=!!curKey();
   $('#setupT').textContent='Einmalig: '+PN()+'-Schlüssel eintragen';
-  $('#setupHint').textContent=g?'Den Schlüssel bekommst du kostenlos auf aistudio.google.com/app/apikey. Er bleibt nur auf diesem Gerät gespeichert.':'Den Schlüssel erstellst du auf platform.claude.com unter „API Keys“ (Guthaben nötig). Er bleibt nur auf diesem Gerät gespeichert.';
-  $('#key').value=cfg.key||'';$('#model').value=cfg.model||'gemini-flash-latest';
-  $('#ckey').value=cfg.ckey||'';$('#cmodel').value=cfg.cmodel||'claude-sonnet-5-5';
+  $('#setupHint').textContent=PROV[cfg.provider].hint+' Er bleibt nur auf diesem Gerät gespeichert.';
+  for(const p in PROV){$('#k_'+p).value=cfg[PROV[p].k]||'';$('#m_'+p).value=cfg[PROV[p].m]||''}
 }
 async function testKey(k,out,prov){
-  prov=prov||cfg.provider;const pn=prov==='gemini'?'Gemini':'Claude';
+  prov=prov||cfg.provider;const pn=PN(prov);
   out.className='sub';out.textContent='Teste Schlüssel …';
-  try{const r=prov==='gemini'?await fetch(GAPI+'models?pageSize=1',{headers:{'x-goog-api-key':k}}):await fetch(CAPI+'models?limit=1',{headers:cHead(k)});
+  try{let r;
+    if(prov==='gemini')r=await fetch(GAPI+'models?pageSize=1',{headers:{'x-goog-api-key':k}});
+    else if(prov==='claude')r=await fetch(CAPI+'models?limit=1',{headers:cHead(k)});
+    else if(prov==='groq')r=await fetch(OA.groq+'models',{headers:oaHead('groq',k)});
+    else r=await fetch(OA.openrouter+'key',{headers:oaHead('openrouter',k)});
     let j={};try{j=await r.json()}catch(e){}
     if(!r.ok)throw {status:r.status,message:j.error&&j.error.message};
     out.className='ok-t';out.textContent='Schlüssel funktioniert.';return true}
   catch(e){out.className='bad-t';out.textContent=gErr(e,pn);return false}
 }
-$('#key1Save').onclick=async()=>{const k=$('#key1').value.trim();if(!k)return;const f=cfg.provider==='gemini'?'key':'ckey';cfg[f]=k;saveCfg();$('#key1').value='';
+$('#key1Save').onclick=async()=>{const k=$('#key1').value.trim();if(!k)return;const f=PROV[cfg.provider].k;cfg[f]=k;saveCfg();$('#key1').value='';
   const ok=await testKey(k,$('#key1State'));if(!ok&&/ungültig|Berechtigung/.test($('#key1State').textContent)){cfg[f]='';saveCfg()}keyUI();if(!ok){$('#setup').hidden=false}else msg('Schlüssel gespeichert – du kannst loslegen.')};
-$('#keySave').onclick=async()=>{cfg.key=$('#key').value.trim();cfg.model=$('#model').value.trim()||'gemini-flash-latest';saveCfg();keyUI();if(cfg.key)await testKey(cfg.key,$('#keyState'),'gemini');else $('#keyState').textContent='Kein Schlüssel eingetragen.'};
-$('#ckeySave').onclick=async()=>{cfg.ckey=$('#ckey').value.trim();cfg.cmodel=$('#cmodel').value.trim()||'claude-sonnet-5-5';saveCfg();keyUI();if(cfg.ckey)await testKey(cfg.ckey,$('#ckeyState'),'claude');else $('#ckeyState').textContent='Kein Schlüssel eingetragen.'};
-$('#prov').addEventListener('change',e=>{cfg.provider=e.target.value;saveCfg();keyUI();$('#key1State').textContent='';msg('Auswertung jetzt mit '+PN()+'.')});
+$('#setBox').addEventListener('click',async e=>{const b=e.target.closest('[data-ks]');if(!b)return;const p=b.dataset.ks,P=PROV[p];
+  cfg[P.k]=$('#k_'+p).value.trim();cfg[P.m]=$('#m_'+p).value.trim()||P.dm;if(p==='groq')groqAuto=null;saveCfg();keyUI();
+  if(cfg[P.k])await testKey(cfg[P.k],$('#s_'+p),p);else $('#s_'+p).textContent='Kein Schlüssel eingetragen.'});
+$('#prov').addEventListener('change',e=>{cfg.provider=e.target.value;saveCfg();keyUI();$('#key1State').textContent='';msg('Zuerst auswerten mit '+PN()+'.')});
+$('#fallback').addEventListener('change',e=>{cfg.fallback=e.target.checked;saveCfg()});
 $('#ics').onclick=()=>{
   const d=new Date();d.setDate(d.getDate()+((8-d.getDay())%7||7));const ymd=iso(d).replace(/-/g,''),url=location.href.split('#')[0];
   const rule=ival%7===0?'FREQ=WEEKLY;INTERVAL='+(ival/7):'FREQ=DAILY;INTERVAL='+ival;
