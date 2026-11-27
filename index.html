@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Fehlmengen-Tracker</title>
+<script>try{var c=JSON.parse(localStorage.getItem('fehlmengen-bob.cfg')||'{}');document.documentElement.dataset.theme=c.theme==='dark'?'dark':'light'}catch(e){document.documentElement.dataset.theme='light'}</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -26,20 +27,29 @@
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 'Open Sans',system-ui,sans-serif;overflow-x:clip}
 .band{padding:clamp(22px,4vw,48px) max(5vw,16px)}
 .wrap{max-width:760px;margin:0 auto}
-.top{background:#fff;color:#3c4046;border-top:10px solid var(--gelb);border-bottom:3px solid var(--gruen)}
+.top{background:#fff;color:#3c4046;border-top:6px solid var(--gelb);border-bottom:3px solid var(--gruen);padding:10px max(5vw,16px) 14px}
+:root[data-theme=dark] .top{background:#22262a;color:#e9eaeb}
+:root[data-theme=dark] .top .sum{color:#e9eaeb}
+:root[data-theme=dark] .top h1{color:#e9eaeb}
+:root[data-theme=dark] .logo{background:#fff;border-radius:6px;padding:3px 6px;box-sizing:content-box}
+.hrow{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.hrow2{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:12px;margin:6px 0 10px}
+.tbtn{min-height:36px;padding:0 12px;border-radius:99px;border:1px solid #aeb3b6;background:transparent;color:inherit;font:600 13px 'Open Sans',sans-serif;cursor:pointer}
 .top .sub,.top .sum{color:#3c4046}
-h1{font:700 clamp(30px,5.5vw,42px)/1.1 'Open Sans',sans-serif;margin:0 0 6px;color:var(--grau);text-wrap:balance}
-.logo{display:block;height:44px;width:auto;margin:0 0 14px}
+h1{font:700 24px/1.2 'Open Sans',sans-serif;margin:0;color:var(--grau)}
+.logo{display:block;height:30px;width:auto}
 h2{font:700 24px/1.2 'Open Sans',sans-serif;margin:0 0 14px}
-.sum{margin:0 0 18px;font-size:17px}
-.actions{display:flex;flex-wrap:wrap;gap:10px}
+.sum{margin:0;font-size:14px}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.top .btn{min-height:42px;padding:0 14px;font-size:15px}
+.top .btn.pri{flex:1 1 auto}
 .btn{min-height:44px;padding:0 18px;border-radius:10px;border:1.5px solid currentColor;background:transparent;color:inherit;font:600 16px 'Open Sans',sans-serif;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px}
 .btn:disabled{opacity:.4;cursor:default}
 .pri{background:var(--nav);color:var(--navink);border-color:var(--nav)}
 .top .pri{background:#6f7b77;color:#fff;border-color:#6f7b77}
-.top .btn:not(.pri){color:#4a4f55;border-color:#aeb3b6}
+.top .btn:not(.pri){color:inherit;border-color:#aeb3b6}
 .vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
-.due{margin-top:16px;background:var(--gelb);color:#2e2a00;border-radius:10px;padding:12px 14px;font-weight:600}
+.due{margin-top:10px;font-size:14px;background:var(--gelb);color:#2e2a00;border-radius:10px;padding:12px 14px;font-weight:600}
 button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,label.btn:focus-within{outline:3px solid var(--sig);outline-offset:2px}
 .search{margin-bottom:16px}
 .grp{border:1px solid var(--line);border-radius:14px;margin:0 0 18px;overflow:hidden}
@@ -132,14 +142,13 @@ input,select{font:16px 'Open Sans',sans-serif;min-height:44px;padding:8px 10px;b
 </style>
 </head>
 <body>
-<header class="band top"><div class="wrap">
-  <img class="logo" src="logo.png" alt="Automobilcenter Weitmar GmbH">
-  <h1>Fehlmengen</h1>
-  <p class="sum" id="sum">Lade …</p>
+<header class="top"><div class="wrap">
+  <div class="hrow"><img class="logo" src="logo.png" alt="Automobilcenter Weitmar GmbH"><button class="tbtn" id="themeBtn" type="button" aria-label="Farbmodus wechseln">Dunkel</button></div>
+  <div class="hrow2"><h1>Fehlmengen</h1><p class="sum" id="sum">Lade …</p></div>
   <div class="actions">
-    <button class="btn pri" id="shoot" type="button">Rechnung erfassen (Foto/PDF)</button>
-    <button class="btn" id="manual" type="button">Manuell erfassen</button>
-    <button class="btn" id="export" type="button">Excel-Export</button>
+    <button class="btn pri" id="shoot" type="button">Rechnung erfassen</button>
+    <button class="btn" id="manual" type="button">Manuell</button>
+    <button class="btn" id="export" type="button">Excel</button>
   </div>
   <div class="due" id="due" hidden></div>
 </div></header>
@@ -745,6 +754,9 @@ $('#setBox').addEventListener('click',async e=>{const b=e.target.closest('[data-
   if(cfg[P.k])await testKey(cfg[P.k],$('#s_'+p),p);else $('#s_'+p).textContent='Kein Schlüssel eingetragen.'});
 $('#prov').addEventListener('change',e=>{cfg.provider=e.target.value;saveCfg();keyUI();$('#key1State').textContent='';msg('Zuerst auswerten mit '+PN()+'.')});
 $('#fallback').addEventListener('change',e=>{cfg.fallback=e.target.checked;saveCfg()});
+function applyTheme(){const d=cfg.theme==='dark';document.documentElement.dataset.theme=d?'dark':'light';$('#themeBtn').textContent=d?'Hell':'Dunkel';const m=document.querySelector('meta[name=theme-color]');if(m)m.content=d?'#22262a':'#ffe500'}
+$('#themeBtn').onclick=()=>{cfg.theme=cfg.theme==='dark'?'light':'dark';saveCfg();applyTheme()};
+applyTheme();
 $('#ics').onclick=()=>{
   const d=new Date();d.setDate(d.getDate()+((8-d.getDay())%7||7));const ymd=iso(d).replace(/-/g,''),url=location.href.split('#')[0];
   const rule=ival%7===0?'FREQ=WEEKLY;INTERVAL='+(ival/7):'FREQ=DAILY;INTERVAL='+ival;
