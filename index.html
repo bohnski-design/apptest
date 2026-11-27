@@ -7,43 +7,52 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-180.png">
-<meta name="theme-color" content="#d4ad78">
+<meta name="theme-color" content="#ffe500">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Fehlmengen">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 /* VOICE: sachliches Werkstatt-Werkzeug, ruhig, schnell bedienbar
    IDEA: die Lieferanten-Rechnung mit Textmarker und Abhakkästchen – was nicht abgehakt ist, fehlt
    PICTURE: die Fehlmengen-Liste selbst, direkt unter dem Titel
-   COLOUR and TYPE: Karton-Band, Tinte, Signalorange für "fehlt", Textmarker-Gelb; Archivo
+   COLOUR and TYPE: Hausfarben Automobilcenter Weitmar – Gelb, Grau, Limettengrün; Signalorange für "fehlt"; Open Sans
    LAYOUT: eine Spalte bis 760px, Telefon zuerst */
-:root{color-scheme:light dark;--bg:light-dark(#ffffff,#111214);--ink:light-dark(#15171c,#ecebe7);--mut:light-dark(#5b606c,#a2a5ad);--line:light-dark(#e2e3e7,#2b2d33);--kraft:light-dark(#d4ad78,#2c2318);--kink:light-dark(#2a1d0c,#ecd3a4);--sig:light-dark(#c93c0c,#ff7f4a);--sigbg:light-dark(#fdeee7,#3a1d12);--soft:light-dark(#f6f6f8,#1a1b1f);--hl:light-dark(#eef46a,#5d6118);--hlink:light-dark(#2d2f00,#f4f7c8)}
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#16181a);--ink:light-dark(#3c4046,#e9eaeb);--mut:light-dark(#6b7076,#a4a9ad);--line:light-dark(#e1e3e4,#2d3135);--gelb:#ffe500;--gruen:#a2c012;--gruend:light-dark(#6f8508,#b9d63a);--grau:#62686f;--nav:light-dark(#6f7b77,#8d9a95);--navink:light-dark(#ffffff,#111416);--sig:light-dark(#d4460f,#ff8a55);--sigbg:light-dark(#fdeee6,#3a1e12);--soft:light-dark(#f4f5f5,#1e2124);--hl:light-dark(#fff27a,#5e5a12);--hlink:light-dark(#3a3500,#fff7b8)}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 *{box-sizing:border-box;min-width:0}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 'Archivo',system-ui,sans-serif;overflow-x:clip}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 'Open Sans',system-ui,sans-serif;overflow-x:clip}
 .band{padding:clamp(22px,4vw,48px) max(5vw,16px)}
 .wrap{max-width:760px;margin:0 auto}
-.top{background:var(--kraft);color:var(--kink)}
-h1{font:800 clamp(34px,6vw,48px)/1.05 'Archivo',sans-serif;margin:0 0 4px;text-wrap:balance}
-.kick{margin:0 0 12px;font-size:13px;font-weight:600;opacity:.8}
-.kick img{height:22px;width:auto;display:block}
-h2{font:700 24px/1.2 'Archivo',sans-serif;margin:0 0 14px}
+.top{background:#fff;color:#3c4046;border-top:10px solid var(--gelb);border-bottom:3px solid var(--gruen)}
+.top .sub,.top .sum{color:#3c4046}
+h1{font:700 clamp(30px,5.5vw,42px)/1.1 'Open Sans',sans-serif;margin:0 0 6px;color:var(--grau);text-wrap:balance}
+.logo{display:block;height:44px;width:auto;margin:0 0 14px}
+h2{font:700 24px/1.2 'Open Sans',sans-serif;margin:0 0 14px}
 .sum{margin:0 0 18px;font-size:17px}
 .actions{display:flex;flex-wrap:wrap;gap:10px}
-.btn{min-height:44px;padding:0 18px;border-radius:10px;border:1.5px solid currentColor;background:transparent;color:inherit;font:600 16px 'Archivo',sans-serif;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn{min-height:44px;padding:0 18px;border-radius:10px;border:1.5px solid currentColor;background:transparent;color:inherit;font:600 16px 'Open Sans',sans-serif;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px}
 .btn:disabled{opacity:.4;cursor:default}
-.pri{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-.top .pri{background:var(--kink);color:var(--kraft);border-color:var(--kink)}
+.pri{background:var(--nav);color:var(--navink);border-color:var(--nav)}
+.top .pri{background:#6f7b77;color:#fff;border-color:#6f7b77}
+.top .btn:not(.pri){color:#4a4f55;border-color:#aeb3b6}
 .vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
-.due{margin-top:16px;background:var(--sig);color:#fff;border-radius:10px;padding:12px 14px;font-weight:600}
+.due{margin-top:16px;background:var(--gelb);color:#2e2a00;border-radius:10px;padding:12px 14px;font-weight:600}
 button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,label.btn:focus-within{outline:3px solid var(--sig);outline-offset:2px}
 .search{margin-bottom:16px}
 .grp{border:1px solid var(--line);border-radius:14px;margin:0 0 18px;overflow:hidden}
-.grp>header{padding:14px 16px;background:var(--soft);border-bottom:1px solid var(--line)}
-.grp h3{margin:0;font:700 18px/1.3 'Archivo',sans-serif}
+.grp>.gh{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:left;padding:14px 16px;background:var(--soft);border:0;border-left:5px solid var(--gruen);color:var(--ink);font:inherit;cursor:pointer;min-height:64px}
+.grp.open>.gh{border-bottom:1px solid var(--line)}
+.grp.hasdue>.gh{border-left-color:var(--sig)}
+.gh .chev{width:12px;height:12px;border:solid var(--mut);border-width:0 2.5px 2.5px 0;transform:rotate(45deg);margin:0 6px 4px;transition:transform .2s}
+.grp.open .gh .chev{transform:rotate(-135deg);margin-bottom:-4px}
+.gh .amt{font-weight:700;white-space:nowrap}
+.gbody[hidden]{display:none}
+.nw{white-space:nowrap}
+@media(prefers-reduced-motion:reduce){.gh .chev{transition:none}}
+.grp h3{margin:0;font:700 18px/1.3 'Open Sans',sans-serif}
 .sub{color:var(--mut);font-size:14px}
 .grp ul,#pos,#done{list-style:none;margin:0;padding:0}
 .op{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:14px 16px}
@@ -53,8 +62,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 .age{font-size:14px;margin-top:4px}
 .op.isdue .age{color:var(--sig);font-weight:600}
 .opa{display:flex;flex-direction:column;gap:6px}
-.sbtn{min-height:44px;padding:0 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:600 14px 'Archivo',sans-serif;cursor:pointer;white-space:nowrap}
-.sbtn.ok{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.sbtn{min-height:44px;padding:0 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:600 14px 'Open Sans',sans-serif;cursor:pointer;white-space:nowrap}
+.sbtn.ok{background:var(--nav);color:var(--navink);border-color:var(--nav)}
 .sbtn.warn{color:var(--sig);border-color:var(--sig)}
 .gf{display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px;border-top:1px solid var(--line)}
 .tag{display:inline-block;font-size:13px;font-weight:600;padding:1px 8px;border-radius:99px;background:var(--sigbg);color:var(--sig);white-space:nowrap}
@@ -66,10 +75,10 @@ summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;align-items:
 .fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:18px}
 label.f span,.pm label span{display:block;font-size:12px;color:var(--mut);margin-bottom:3px}
 label.f span{font-size:13px}
-input,select{font:16px 'Archivo',sans-serif;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);width:100%}
+input,select{font:16px 'Open Sans',sans-serif;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);width:100%}
 .ph{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
 .ph b{font-size:17px}.ph div{display:flex;gap:8px;flex-wrap:wrap}
-.obh{padding:14px 0 6px;border-top:2px solid var(--ink);font-size:14px}
+.obh{padding:14px 0 6px;border-top:2px solid var(--gruen);font-size:14px}
 .obh b{font-size:15px}
 .prow{display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;padding:12px 0;border-top:1px solid var(--line)}
 .obh+.prow{border-top:0}
@@ -77,8 +86,8 @@ input,select{font:16px 'Archivo',sans-serif;min-height:44px;padding:8px 10px;bor
 .chk{position:relative;width:44px;height:44px;display:grid;place-items:center;cursor:pointer}
 .chk input{position:absolute;inset:0;opacity:0;margin:0;width:100%;height:100%;cursor:pointer}
 .box{width:30px;height:30px;border:2.5px solid var(--sig);border-radius:7px;display:grid;place-items:center}
-.chk input:checked+.box{background:var(--ink);border-color:var(--ink)}
-.chk input:checked+.box::after{content:"";width:9px;height:16px;border:solid var(--bg);border-width:0 3px 3px 0;transform:translateY(-2px) rotate(45deg)}
+.chk input:checked+.box{background:var(--gruen);border-color:var(--gruen)}
+.chk input:checked+.box::after{content:"";width:9px;height:16px;border:solid #fff;border-width:0 3px 3px 0;transform:translateY(-2px) rotate(45deg)}
 .chk input:focus-visible+.box{outline:3px solid var(--sig);outline-offset:2px}
 .pt{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .pt .bz{flex:1 1 180px;border-color:transparent;padding-left:6px;font-weight:600}
@@ -101,13 +110,13 @@ input,select{font:16px 'Archivo',sans-serif;min-height:44px;padding:8px 10px;bor
 .msg:empty{display:none}.msg.err{background:var(--sig);color:#fff}
 .note{font-size:13px;color:var(--mut);margin-top:24px}
 .setup{border:2px solid var(--ink);border-radius:14px;padding:16px;margin-bottom:18px}
-.setup h3{margin:0 0 6px;font:700 18px/1.3 'Archivo',sans-serif}
+.setup h3{margin:0 0 6px;font:700 18px/1.3 'Open Sans',sans-serif}
 .krow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.krow input{flex:1 1 220px}
 .setgrid{display:grid;gap:16px;padding:6px 0 10px}
 .setgrid h4{margin:0 0 4px;font-size:15px}
 .ok-t{color:light-dark(#1f7a3a,#6fd08c);font-weight:600}.bad-t{color:var(--sig);font-weight:600}
 .pc{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:12px 0 6px}
-.pc button{min-height:56px;font:700 22px 'Archivo',sans-serif;border-radius:10px;border:1.5px solid var(--ink);background:var(--bg);color:var(--ink);cursor:pointer}
+.pc button{min-height:56px;font:700 22px 'Open Sans',sans-serif;border-radius:10px;border:1.5px solid var(--ink);background:var(--bg);color:var(--ink);cursor:pointer}
 .shot{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
 .shot .ph0{width:64px;height:86px;border-radius:8px;border:1.5px dashed var(--line);display:grid;place-items:center;color:var(--mut);font-weight:700}
 .shot img{width:64px;height:86px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
@@ -117,15 +126,15 @@ input,select{font:16px 'Archivo',sans-serif;min-height:44px;padding:8px 10px;bor
 .fb input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px;margin:0}
 .fb:focus-within{outline:3px solid var(--sig);outline-offset:2px}
 .or{display:flex;align-items:center;gap:12px;color:var(--mut);font-size:14px;margin:18px 0 12px}.or::before,.or::after{content:"";flex:1;border-top:1px solid var(--line)}
-.lnk{background:none;border:0;padding:6px 0;min-height:36px;color:var(--mut);font:600 14px 'Archivo',sans-serif;text-decoration:underline;cursor:pointer}
+.lnk{background:none;border:0;padding:6px 0;min-height:36px;color:var(--mut);font:600 14px 'Open Sans',sans-serif;text-decoration:underline;cursor:pointer}
 .bemf{display:flex;gap:8px;margin-top:6px}.bemf input{flex:1}
 @media(max-width:560px){.op{grid-template-columns:1fr}.opa{flex-direction:row}.opa .sbtn{flex:1}.pm{grid-template-columns:repeat(3,minmax(0,1fr))}.pm .w2{grid-column:span 3}}
 </style>
 </head>
 <body>
 <header class="band top"><div class="wrap">
+  <img class="logo" src="logo.png" alt="Automobilcenter Weitmar GmbH">
   <h1>Fehlmengen</h1>
-  <p class="kick" id="brand">Automobilcenter Weitmar</p>
   <p class="sum" id="sum">Lade …</p>
   <div class="actions">
     <button class="btn pri" id="shoot" type="button">Rechnung erfassen (Foto/PDF)</button>
@@ -263,7 +272,7 @@ const hay=(r,p)=>[r.nr,r.auftragsnr,p.bez,p.teilenr,bemOf(p),p.bestellnr,p.refer
 const match=(r,p)=>!qtext||hay(r,p).includes(qtext);
 
 /* ---------- Liste ---------- */
-let bemEdit=null,bemDraft='';
+let bemEdit=null,bemDraft='';const openG=new Set();
 function bemBlock(r,p){
   const k=r.id+'|'+p.id;
   if(bemEdit===k)return `<div class="bemf"><input id="bemIn" value="${esc(bemDraft)}" placeholder="Bemerkung" aria-label="Bemerkung"><button class="sbtn ok" data-a="bemSave" data-r="${r.id}" data-p="${p.id}">OK</button></div>`;
@@ -286,15 +295,20 @@ function render(){
   const d=$('#due');d.hidden=!dueN;d.textContent=`${dueN} Position${dueN>1?'en':''} zur Kontrolle fällig – prüfe, ob nachgeliefert wurde.`;
   $('#groups').innerHTML=!ready?'<div class="empty">Lade Daten …</div>':groups.length?groups.map(({r,items})=>{
     const s=items.reduce((a,p)=>a+(nettoOf(p)||0),0);
-    return `<article class="grp"><header><h3>RE ${esc(r.nr||'ohne Nr.')}</h3>
-      <div class="sub">vom ${fd(r.rechnungsdatum)}${r.auftragsnr?' · Auftrag '+esc(r.auftragsnr):''} · ${items.length} offen · ${eur(s)} netto</div></header><ul>
+    const open=!!qtext||openG.has(r.id),dueN=items.filter(isDue).length,old=items[0].fehltSeit;
+    return `<article class="grp${open?' open':''}${dueN?' hasdue':''}"><button class="gh" type="button" data-a="tog" data-r="${r.id}" aria-expanded="${open}">
+      <div><h3>RE ${esc(r.nr||'ohne Nr.')}</h3>
+      <div class="sub">vom ${fd(r.rechnungsdatum)}${r.auftragsnr?' · Auftrag '+esc(r.auftragsnr):''}</div>
+      <div class="sub"><b>${items.length} offen</b> · <span class="amt">${eur(s)} netto</span> · älteste seit ${fd(old)} (${tg(days(old,t))})${dueN?` <span class="tag">${dueN} prüfen</span>`:''}</div></div>
+      <span class="chev" aria-hidden="true"></span></button>
+      <div class="gbody"${open?'':' hidden'}><ul>
       ${items.map(p=>{const dd=isDue(p);return `<li class="op${dd?' isdue':''}"><div><div class="bz">${esc(p.bez||'Ohne Bezeichnung')}</div>
-        <div class="sub">${p.teilenr?esc(p.teilenr)+' · ':''}${num(p.menge)} ${esc(p.einheit||'')} · netto ${eur(nettoOf(p))} · brutto ${eur(bruttoOf(p))}</div>
+        <div class="sub">${p.teilenr?esc(p.teilenr)+' · ':''}<span class="nw">${num(p.menge)} ${esc(p.einheit||'')}</span> · <span class="nw">netto ${eur(nettoOf(p))}</span> · <span class="nw">brutto ${eur(bruttoOf(p))}</span></div>
         <div class="sub">${p.bestellnr?'Best. '+esc(p.bestellnr):''}${p.lsnr?' · LS '+esc(p.lsnr):''}</div>
         ${bemBlock(r,p)}
         <div class="age">Fehlt seit ${fd(p.fehltSeit)} · ${tg(days(p.fehltSeit,t))}${p.kontrolle?' · geprüft '+fd(p.kontrolle):''}${dd?' <span class="tag">prüfen</span>':''}</div></div>
         <div class="opa"><button class="sbtn ok" data-a="ok" data-r="${r.id}" data-p="${p.id}">Nachgeliefert</button><button class="sbtn" data-a="chk" data-r="${r.id}" data-p="${p.id}">Fehlt noch</button></div></li>`}).join('')}
-      </ul><div class="gf"><button class="sbtn" data-a="edit" data-r="${r.id}">Bearbeiten</button><button class="sbtn warn" data-a="del" data-r="${r.id}">${delArm===r.id?'Wirklich löschen?':'Löschen'}</button></div></article>`}).join('')
+      </ul><div class="gf"><button class="sbtn" data-a="edit" data-r="${r.id}">Bearbeiten</button><button class="sbtn warn" data-a="del" data-r="${r.id}">${delArm===r.id?'Wirklich löschen?':'Löschen'}</button></div></div></article>`}).join('')
     :`<div class="empty">${qtext&&all.length?'Keine offene Position passt zur Suche.':'Nichts offen. Erfasse eine Rechnung, bei der etwas fehlt – die nicht angehakten Positionen landen hier.'}</div>`;
   const bi=$('#bemIn');if(bi&&document.activeElement!==bi){bi.focus();bi.setSelectionRange(bi.value.length,bi.value.length)}
   const dn=[];for(const r of invs)for(const p of (r.positionen||[]))if(p.status==='nachgeliefert'&&match(r,p))dn.push({r,p});
@@ -306,6 +320,7 @@ function render(){
 function updatePos(rid,pid,ch){const r=invs.find(x=>x.id===rid);if(!r)return;const p=(r.positionen||[]).find(x=>x.id===pid);if(!p)return;Object.assign(p,ch);persist();render()}
 $('#list').addEventListener('click',e=>{
   const b=e.target.closest('button[data-a]');if(!b)return;const {a,r,p}=b.dataset;
+  if(a==='tog'){openG.has(r)?openG.delete(r):openG.add(r);render();return}
   if(a==='ok'){updatePos(r,p,{status:'nachgeliefert',nachAm:today()});msg('Als nachgeliefert markiert.')}
   else if(a==='chk'){updatePos(r,p,{kontrolle:today()});msg('Kontrolle vermerkt – nächste Erinnerung in '+ival+' Tagen.')}
   else if(a==='bem'){const x=invs.find(i=>i.id===r),y=x&&(x.positionen||[]).find(i=>i.id===p);bemEdit=r+'|'+p;bemDraft=y?bemOf(y):'';render()}
